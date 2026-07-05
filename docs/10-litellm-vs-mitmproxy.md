@@ -64,26 +64,38 @@ fait le routage (le réseau).
 
 ---
 
-## 4. Ce qu'il reste au proxy dédié — et pourquoi c'est marginal
+## 4. Le seul rôle « en plus » d'un proxy — et pourquoi son gain est NUL ici
 
 Le seul rôle **non** couvert par LiteLLM + réseau serait le **swap jeton-de-session ↔
 virtual key** : garder la virtual key **hors de la sandbox** (l'agent ne détiendrait
 qu'un jeton opaque qu'un proxy validerait puis substituerait par la vraie clé amont).
-C'est un incrément **réel mais non catégoriel** :
+Dans **cette** architecture, ce swap n'apporte **rien** — voici pourquoi, point par point.
 
-- son bénéfice ne se matérialise que si un crédentiel peut **fuir** — or l'egress
-  est déjà verrouillé ;
-- on obtient ~la même propriété **sans proxy** avec une virtual key **courte,
-  scopée et révocable** injectée au runtime — ce que l'énoncé demande déjà
-  (« injecter par variable d'environnement scoping minimal au runtime »).
+Le swap ne protège que **contre un seul scénario** : une virtual key qui **fuit** de la
+sandbox et qu'un **tiers rejoue** contre la gateway. Or :
+
+1. **L'egress est verrouillé** (`--internal`) : l'agent ne peut physiquement **rien**
+   envoyer ailleurs qu'à la gateway → la clé **ne peut pas fuir**. Isoler la clé
+   protège donc contre une fuite **qui ne peut pas se produire**.
+2. **Le jeton de session = exactement la même capacité que la clé** : le proxy le
+   re-substitue en amont, donc un agent compromis **fait la même chose** avec l'un ou
+   l'autre. Le swap ne réduit **pas** ce qu'il peut *faire*, seulement à quoi
+   *ressemble* une chaîne exfiltrée.
+3. La virtual key est déjà **scopée et révocable** (modèles/budget/rate-limit/TTL) :
+   même une fuite hypothétique aurait un impact **borné et tuable**.
+
+Le swap n'a donc de valeur que **sans** verrou d'egress — c'est-à-dire dans le cas
+**Cowork** (egress vers un domaine public multi-tenant non maîtrisé), précisément celui
+qu'on a **supprimé** ici. **Gain résiduel du proxy dans cette architecture : nul.**
 
 ---
 
 ## 5. Décision de conception
 
 Le **proxy MITM dédié est redondant** sur les deux défenses qui comptent
-(identité → LiteLLM ; destination → réseau) et n'apporte qu'un gain **marginal**
-(clé hors sandbox). On retient donc :
+(identité → LiteLLM ; destination → réseau) et n'apporte **aucun** gain résiduel :
+son seul rôle « en plus » (le swap clé-hors-sandbox) ne protège que contre une fuite
+**rendue impossible par le verrou d'egress** (cf. §4). On retient donc :
 
 - **Gateway LiteLLM ré-authentifiante** — provenance + scope + budget + audit ;
 - **verrou réseau** `--internal` + default-deny Incus/nftables — destination ;
