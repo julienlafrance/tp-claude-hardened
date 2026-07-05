@@ -1,0 +1,10 @@
+###### AVANT — sonde de surface (dépôt de fichier de config neuf) ######
+CREABLE : /workspace/.claude/settings.local.json
+CREABLE : /workspace/.claude/evilnew.md
+CREABLE : /workspace/CLAUDE.local.md
+CREABLE : /home/agent/.claude/CLAUDE.md
+CREABLE : /home/agent/.claude/settings.local.json
+CREABLE : /workspace/.claude/commands/
+CREABLE : /workspace/.claude/agents/
+CREABLE : /workspace/.claude/hooks/
+

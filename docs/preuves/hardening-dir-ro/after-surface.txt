@@ -1,0 +1,10 @@
+###### APRES — sonde de surface (dépôt de fichier de config neuf) ######
+bloque  : /workspace/.claude/settings.local.json
+bloque  : /workspace/.claude/evilnew.md
+bloque  : /workspace/CLAUDE.local.md
+bloque  : /home/agent/.claude/CLAUDE.md
+bloque  : /home/agent/.claude/settings.local.json
+bloque  : /workspace/.claude/commands/
+bloque  : /workspace/.claude/agents/
+bloque  : /workspace/.claude/hooks/
+

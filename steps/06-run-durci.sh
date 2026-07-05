@@ -114,6 +114,29 @@ fi
 # -----------------------------------------------------------------------------
 chown -R 10001:10001 "$WORKSPACE" 2>/dev/null || warn "chown workspace -> 10001 impossible (droits hote ?) ; l'agent pourrait ne pas ecrire /workspace."
 
+# -----------------------------------------------------------------------------
+# DURCISSEMENT AU NIVEAU REPERTOIRE (ferme la surface « depot de fichier neuf »).
+# Un :ro FICHIER-PAR-FICHIER protege les fichiers NOMMES (settings.json, CLAUDE.md,
+# .mcp.json, skills) mais laisse le REPERTOIRE .claude INSCRIPTIBLE : un agent
+# compromis peut y DEPOSER un fichier de config NEUF que Claude Code lit quand meme
+# (settings.local.json, commands/, agents/, hooks/, un CLAUDE.md neuf...) ->
+# empoisonnement memoire / hook. PROUVE empiriquement : qwen obeit a un CLAUDE.md
+# depose (evidence/hardening-dir-ro/before-*). On monte donc le repertoire .claude
+# PROJET *ENTIER* en :ro, et on neutralise les chemins de config hors-.claude par
+# des placeholders :ro (fichier/dir vides). Aligne sur le sandbox-runtime d'Anthropic
+# qui « refuse l'ecriture de settings.json a TOUS les scopes » (cf. docs/12).
+# -----------------------------------------------------------------------------
+ASM="$CONFIG/.assembled"
+rm -rf "$ASM"; mkdir -p "$ASM/project-dotclaude" "$ASM/empty-dir"
+cp    "$CONFIG/project-settings.json" "$ASM/project-dotclaude/settings.json"
+cp -a "$CONFIG/project-skills"        "$ASM/project-dotclaude/skills"
+: > "$ASM/empty-file"          # placeholder memoire vide (CLAUDE.md / CLAUDE.local.md neufs)
+printf '{}' > "$ASM/empty-json"  # placeholder settings vide et VALIDE (settings.local.json)
+# 2e verrou (perms) sur les FICHIERS seulement (les dirs restent supprimables au prochain run) ;
+# le verrou kernel :ro reste l'essentiel.
+find "$ASM" -type f -exec chmod 0444 {} + 2>/dev/null || true
+info "Config .claude PROJET assemblee en repertoire :ro (ferme le depot de fichier de config neuf)."
+
 # =============================================================================
 # 1) RETRAIT de l'ancien conteneur PUIS reseau tp_internal au SUBNET FIGE.
 #    On retire d'abord un eventuel ancien durci : un reseau EN USAGE n'est pas
@@ -164,12 +187,16 @@ docker run -d --name "$NAME" \
   --tmpfs /run:rw,nosuid,nodev,size=64m \
   --tmpfs /home/agent/.claude:rw,nosuid,nodev,uid=10001,gid=10001,size=256m \
   -v "$WORKSPACE":/workspace:rw \
-  -v "$CONFIG/project-settings.json":/workspace/.claude/settings.json:ro \
+  -v "$ASM/project-dotclaude":/workspace/.claude:ro \
   -v "$CONFIG/project-CLAUDE.md":/workspace/CLAUDE.md:ro \
   -v "$CONFIG/project-mcp.json":/workspace/.mcp.json:ro \
-  -v "$CONFIG/project-skills":/workspace/.claude/skills:ro \
+  -v "$ASM/empty-file":/workspace/CLAUDE.local.md:ro \
   -v "$CONFIG/user-settings.json":/home/agent/.claude/settings.json:ro \
   -v "$CONFIG/user-skills":/home/agent/.claude/skills:ro \
+  -v "$ASM/empty-file":/home/agent/.claude/CLAUDE.md:ro \
+  -v "$ASM/empty-json":/home/agent/.claude/settings.local.json:ro \
+  -v "$ASM/empty-dir":/home/agent/.claude/commands:ro \
+  -v "$ASM/empty-dir":/home/agent/.claude/agents:ro \
   -v "$CONFIG/ssh-authorized_keys":/home/agent/.ssh/authorized_keys:ro \
   --cap-drop=ALL \
   --security-opt no-new-privileges \
