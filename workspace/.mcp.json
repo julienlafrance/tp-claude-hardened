@@ -1,0 +1,35 @@
+{
+  "_commentaire_fr_1": "===================================================================",
+  "_commentaire_fr_2": "  .mcp.json PROJET — ACTIF PROTEGE par le TP.",
+  "_commentaire_fr_3": "  Chemin dans le conteneur : /workspace/.mcp.json",
+  "_commentaire_fr_4": "  ",
+  "_commentaire_fr_5": "  POURQUOI C'EST UNE CIBLE (ATTAQUE #4 de la matrice) :",
+  "_commentaire_fr_6": "  .mcp.json declare les serveurs MCP (Model Context Protocol) que",
+  "_commentaire_fr_7": "  l'agent peut utiliser. Chaque serveur MCP = un OCTROI DE CAPACITE",
+  "_commentaire_fr_8": "  supplementaire (acces fichiers, reseau, base de donnees, etc.).",
+  "_commentaire_fr_9": "  Un attaquant qui AJOUTE un serveur dans ce fichier elargit le",
+  "_commentaire_fr_10": "  'blast radius' de l'agent : il peut introduire un serveur MCP",
+  "_commentaire_fr_11": "  hostile (ex: qui exfiltre via une commande arbitraire au demarrage).",
+  "_commentaire_fr_12": "  ",
+  "_commentaire_fr_13": "  CONTRE-MESURE (profil DURCI) : monte en lecture seule (bind :ro,",
+  "_commentaire_fr_14": "  verrou kernel), source figee root:root 0444.",
+  "_commentaire_fr_15": "  -> ATTAQUE #4 : nu=Reussie (ajout serveur OK), durci=Bloquee (:ro).",
+  "_commentaire_fr_16": "  ",
+  "_commentaire_fr_17": "  Le serveur ci-dessous ('filesystem') est BENIN : un serveur MCP de",
+  "_commentaire_fr_18": "  reference qui n'expose QUE le workspace en lecture. C'est la 'ligne",
+  "_commentaire_fr_19": "  de base' saine que l'attaque #4 cherchera a completer/detourner.",
+  "_commentaire_fr_20": "===================================================================",
+
+  "mcpServers": {
+    "filesystem": {
+      "_commentaire_fr": "Serveur MCP filesystem officiel, restreint au seul /workspace. Lance via npx (stdio). N'accorde QUE l'acces au repertoire de travail — aucun acces a /home, /run/secrets, etc.",
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/workspace"
+      ]
+    }
+  }
+}

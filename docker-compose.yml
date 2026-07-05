@@ -1,0 +1,281 @@
+# =============================================================================
+#  docker-compose.yml — TP « Durcissement d'un agent Claude Code en Docker »
+# -----------------------------------------------------------------------------
+#  Traduction DECLARATIVE de l'architecture (equivalent Compose du flux scripte
+#  run.sh / steps). DEUX profils d'agent partagent la meme image mais des
+#  postures de securite OPPOSEES :
+#
+#    - agent-nu    : profil "nu"    = VOLONTAIREMENT vulnerable (demo AVANT).
+#                    root, FS rw, egress libre, secret monte, AUCUN garde-fou.
+#                    -> les 6 attaques + le bonus DOIVENT y reussir.
+#    - agent-durci : profil "durci" = piece NOTEE (demo APRES).
+#                    non-root 10001, racine read-only + tmpfs, config :ro,
+#                    cap-drop ALL, no-new-privileges, seccomp restreint,
+#                    reseau `tp_internal --internal` (aucune route Internet),
+#                    limites cgroups, secret ABSENT.
+#                    -> les memes attaques DOIVENT y etre bloquees.
+#
+#  PAS de proxy MITM dedie, PAS de serveur d'exfil, PAS de token de session :
+#    - PROVENANCE / identite : assuree par la GATEWAY LiteLLM sur ixia, qui
+#      ré-authentifie en amont avec SA propre cle et rejette (401) toute cle
+#      cliente etrangere -> l'attaque du compte usurpe (incident « Cowork »)
+#      meurt a la gateway.
+#    - DESTINATION / egress  : assuree par le RESEAU. L'agent durci est sur
+#      `tp_internal --internal` : sa SEULE sortie est la PASSERELLE du bridge,
+#      ou le device Incus `litellm` (point-a-point -> ixia:3101) ecoute. Aucune
+#      route vers Internet, `api.anthropic.com` injoignable en direct.
+#    Argumentaire complet : docs/10-litellm-vs-mitmproxy.md.
+#
+#  Reseaux :
+#    - tp_internal : reseau INTERNAL (internal: true) => AUCUNE route Internet.
+#                    L'agent durci y est seul ; il ne joint que la passerelle
+#                    (device `litellm` = endpoint modele d'ixia). SUBNET FIGE
+#                    (172.31.7.0/24) pour une passerelle stable/predictible
+#                    (172.31.7.1) que Compose peut injecter en BASE_URL.
+#    - tp_egress   : reseau a egress LIBRE (internal: false = NAT/Internet) pour
+#                    le SEUL profil NU (materialise l'absence de confinement).
+#
+#  NOTE : le flux SCRIPTE (steps/06) reste la reference TESTEE ; il cree
+#  `tp_internal --internal` avec un subnet auto et DECOUVRE la passerelle a
+#  l'execution. Compose FIGE le subnet pour rester declaratif. Les deux joignent
+#  le meme device `litellm` (qui ecoute sur 0.0.0.0:3101 cote instance).
+#
+#  IMPORTANT (regles TP) — pieges INTERDITS jamais utilises :
+#    -> jamais de montage de /var/run/docker.sock,
+#    -> jamais privileged, jamais network_mode: host,
+#    -> jamais seccomp:unconfined (sauf sur NU, ou l'ABSENCE de durcissement est
+#       precisement l'objet de la demo AVANT) ni cap_add larges sur le durci.
+#
+#  Usage (profils Compose) :
+#    docker compose --profile nu    up -d        # lance l'agent NU
+#    docker compose --profile durci up -d        # lance l'agent DURCI
+#    docker compose --profile nu --profile durci up -d   # les deux
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+#  Ancres YAML reutilisables (DRY) — facteurs communs aux deux profils.
+# -----------------------------------------------------------------------------
+
+# Limites cgroups communes (anti-DoS / fork-bomb / epuisement CPU-RAM).
+# Note : on les applique AUSSI a NU (l'objet du TP est de demontrer le
+# durcissement FS/egress/config, pas de transformer "nu" en fork-bomb hote).
+x-cgroup-limits: &cgroup-limits
+  mem_limit: ${MEM_LIMIT:-2g}          # --memory 2g  (RAM max)
+  pids_limit: ${PIDS_LIMIT:-256}       # --pids-limit 256  (anti fork-bomb)
+  cpus: ${CPUS:-2}                     # --cpus 2  (quota CPU)
+
+services:
+
+  # ===========================================================================
+  #  SERVICE 1/2 — agent-nu  (profil "nu" = VOLONTAIREMENT VULNERABLE)
+  # ---------------------------------------------------------------------------
+  #  Posture : tout grand ouvert. Point de comparaison "AVANT".
+  #  Les attaques 1..6 + bonus reussissent ICI :
+  #    - config bindee en RW => reecriture settings/CLAUDE.md/skills/mcp OK ;
+  #    - racine RW (pas de read_only) => commande destructrice hors workspace OK ;
+  #    - secret factice MONTE et lisible => exfiltration OK ;
+  #    - egress LIBRE (tp_egress -> Internet) => exfil vers un tiers OK (bonus).
+  # ===========================================================================
+  agent-nu:
+    image: ${IMAGE_AGENT:-claude-hardened:latest}   # meme image, posture differente
+    container_name: claude-nu
+    profiles: ["nu"]                                 # active avec --profile nu
+    hostname: claude-nu
+
+    # --- Identite : ROOT (vulnerable) -----------------------------------------
+    # "0:0" => root explicite. L'image durcie a `USER agent` (10001) par defaut ;
+    # SANS ce forcage, NU tournerait en agent et ne pourrait PAS reecrire la
+    # config -> le profil NU doit etre root pour etre reellement vulnerable.
+    user: "0:0"
+
+    # --- Filesystem : TOUT en lecture-ECRITURE (aucune protection) ------------
+    #  read_only NON defini => racine RW (rm destructeur possible).
+    #  La config est bindee en RW (PAS de suffixe :ro) => reecriture possible.
+    volumes:
+      - type: bind
+        source: ./workspace
+        target: /workspace
+      # --- Config bindee en RW (FAILLE volontaire) : projet ---
+      - type: bind
+        source: ./config/project-settings.json
+        target: /workspace/.claude/settings.json    # reecriture hook OK (attaque 1)
+      - type: bind
+        source: ./config/project-CLAUDE.md
+        target: /workspace/CLAUDE.md                 # empoisonnement memoire OK (attaque 2)
+      - type: bind
+        source: ./config/project-mcp.json
+        target: /workspace/.mcp.json                 # ajout serveur MCP OK (attaque 4)
+      - type: bind
+        source: ./config/project-skills
+        target: /workspace/.claude/skills            # alteration de skill OK (attaque 3)
+      # --- Config bindee en RW (FAILLE volontaire) : utilisateur ---
+      - type: bind
+        source: ./config/user-settings.json
+        target: /home/agent/.claude/settings.json
+      - type: bind
+        source: ./config/user-skills
+        target: /home/agent/.claude/skills
+      # --- Secret factice MONTE et lisible (FAILLE volontaire) : exfil (attaque 5) ---
+      - type: bind
+        source: ./config/fake_token.txt
+        target: /run/secrets/fake_token.txt
+        read_only: true        # ro pour ne pas le corrompre, mais bien PRESENT et LISIBLE
+
+    # --- Variables d'environnement --------------------------------------------
+    environment:
+      # Backend modele : la gateway LiteLLM sur ixia. L'auth est la virtual key
+      # LiteLLM SCOPEE (jamais la master key, jamais un secret Anthropic), via .env.
+      ANTHROPIC_BASE_URL: ${LITELLM_ENDPOINT:-http://backend-host:3101}
+      ANTHROPIC_AUTH_TOKEN: ${LITELLM_VIRTUAL_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}   # VIDE : sinon prend le dessus sur AUTH_TOKEN
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-qwen2.5-coder:14b}
+      ANTHROPIC_SMALL_FAST_MODEL: ${ANTHROPIC_SMALL_FAST_MODEL:-qwen3:0.6b}
+      # PAS de HTTP(S)_PROXY : l'agent NU a un egress LIBRE (aucun proxy impose).
+
+    # --- Reseau : egress LIBRE (Internet) -------------------------------------
+    #  NU est sur tp_egress (internal: false) : il joint n'importe quel hote tiers
+    #  -> exfil possible (c'est la vulnerabilite que le durci supprime).
+    networks:
+      - tp_egress
+
+    # --- Securite : AUCUN garde-fou (volontaire) ------------------------------
+    security_opt:
+      - seccomp:unconfined    # NU = seccomp par defaut neutralise (vulnerable assume)
+    # NB : "seccomp:unconfined" serait un PIEGE INTERDIT sur le DURCI ; ICI il
+    # materialise volontairement l'absence de durcissement (demo AVANT).
+
+    <<: *cgroup-limits
+    restart: "no"
+    init: true
+    command: ["sleep", "infinity"]
+    stdin_open: true
+    tty: true
+
+  # ===========================================================================
+  #  SERVICE 2/2 — agent-durci  (profil "durci" = PIECE NOTEE, durcie)
+  # ---------------------------------------------------------------------------
+  #  Posture : defense en profondeur. Point de comparaison "APRES".
+  #  Les memes attaques 1..6 + bonus sont BLOQUEES ici :
+  #    - config bindee :ro => reecriture refusee (verrou kernel, root-proof) ;
+  #    - read_only + tmpfs => racine immuable, rien a corrompre hors workspace ;
+  #    - secret NON monte => rien a exfiltrer ;
+  #    - reseau tp_internal --internal => egress coupe (seule sortie = gateway) ;
+  #    - identite : clé cliente etrangere -> 401 a la gateway LiteLLM.
+  # ===========================================================================
+  agent-durci:
+    image: ${IMAGE_AGENT:-claude-hardened:latest}
+    container_name: claude-hardened
+    profiles: ["durci"]                              # active avec --profile durci
+    hostname: claude-hardened
+
+    # --- Identite : NON-ROOT (UID/GID 10001) ----------------------------------
+    user: "10001:10001"
+
+    # --- Filesystem : racine READ-ONLY -----------------------------------------
+    read_only: true            # --read-only : tout le FS est immuable par defaut.
+
+    # --- tmpfs ephemeres : seules zones ecrivables hors workspace --------------
+    #  ORDRE CRITIQUE (cf. docs/03) : on declare d'abord la tmpfs /home/agent/.claude,
+    #  PUIS on remonte settings.json + skills en :ro PAR-DESSUS (section volumes).
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m
+      - /run:rw,noexec,nosuid,nodev,size=64m
+      - /home/agent/.claude:rw,nosuid,nodev,uid=10001,gid=10001,size=128m
+
+    # --- Montages : workspace RW + TOUTE la config en :ro ---------------------
+    volumes:
+      - type: bind
+        source: ./workspace
+        target: /workspace         # SEULE zone "metier" ecrivable (rw)
+      # ===== Cibles verrouillees :ro (verrou kernel, root-proof) =====
+      - type: bind
+        source: ./config/project-settings.json
+        target: /workspace/.claude/settings.json
+        read_only: true            # anti injection de hook            -> attaque 1
+      - type: bind
+        source: ./config/project-CLAUDE.md
+        target: /workspace/CLAUDE.md
+        read_only: true            # anti empoisonnement memoire       -> attaque 2
+      - type: bind
+        source: ./config/project-skills
+        target: /workspace/.claude/skills
+        read_only: true            # anti detournement de comportement -> attaque 3
+      - type: bind
+        source: ./config/project-mcp.json
+        target: /workspace/.mcp.json
+        read_only: true            # anti octroi de capacite MCP       -> attaque 4
+      - type: bind
+        source: ./config/user-settings.json
+        target: /home/agent/.claude/settings.json
+        read_only: true            # :ro PAR-DESSUS la tmpfs           -> attaque 1 (user)
+      - type: bind
+        source: ./config/user-skills
+        target: /home/agent/.claude/skills
+        read_only: true            # :ro PAR-DESSUS la tmpfs           -> attaque 3 (user)
+      # NB : AUCUN montage du secret factice => rien a exfiltrer (attaque 5).
+      # NB : AUCUN montage de /var/run/docker.sock (piege interdit).
+
+    # --- Variables d'environnement --------------------------------------------
+    environment:
+      # Backend modele = PASSERELLE tp_internal (device `litellm` -> ixia:3101).
+      # Subnet fige (172.31.7.0/24) => passerelle stable 172.31.7.1. Injecte au
+      # RUNTIME uniquement ; l'auth = virtual key LiteLLM SCOPEE (jamais un secret
+      # Anthropic). Surchargeable par LITELLM_ENDPOINT.
+      ANTHROPIC_BASE_URL: ${LITELLM_ENDPOINT:-http://172.31.7.1:3101}
+      ANTHROPIC_AUTH_TOKEN: ${LITELLM_VIRTUAL_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}   # VIDE : sinon prend le dessus sur AUTH_TOKEN
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-qwen2.5-coder:14b}
+      ANTHROPIC_SMALL_FAST_MODEL: ${ANTHROPIC_SMALL_FAST_MODEL:-qwen3:0.6b}
+      # PAS de HTTP(S)_PROXY : l'egress est coupe par le RESEAU (--internal), pas
+      # impose par un proxy. La seule destination joignable est la passerelle.
+
+    # --- Reseau : tp_internal UNIQUEMENT (aucune route de sortie), IP FIXE ------
+    #  IP fixe 172.31.7.2 : le bridge SSH (corrin -> incus -> docker:2222) pointe
+    #  sur cette adresse stable et reste valide entre recreations.
+    networks:
+      tp_internal:
+        ipv4_address: 172.31.7.2
+
+    # --- Capabilities : TOUTES retirees ---------------------------------------
+    cap_drop:
+      - ALL                    # --cap-drop=ALL (aucune capacite Linux requise)
+    # cap_add : VOLONTAIREMENT ABSENT (piege interdit = cap_add larges).
+
+    # --- Durcissement noyau / privileges --------------------------------------
+    security_opt:
+      - no-new-privileges:true                       # bloque l'escalade SUID/setuid
+      - seccomp=./agent/seccomp-claude.json          # allowlist de syscalls restreinte
+    # JAMAIS "seccomp:unconfined" ni "privileged: true" ici (pieges interdits).
+
+    <<: *cgroup-limits
+    init: true
+    command: ["sleep", "infinity"]
+    stdin_open: true
+    tty: true
+    restart: "no"
+
+# =============================================================================
+#  RESEAUX
+# =============================================================================
+networks:
+
+  # --- tp_internal : reseau INTERNAL (AUCUNE route Internet) ------------------
+  #  L'agent durci y est seul. Sa seule sortie est la PASSERELLE (172.31.7.1),
+  #  ou le device Incus `litellm` (point-a-point -> ixia:3101) ecoute.
+  #  Equivaut a "docker network create --internal --subnet 172.31.7.0/24 tp_internal".
+  tp_internal:
+    name: tp_internal
+    driver: bridge
+    internal: true             # <= CLE : pas de gateway/NAT vers Internet
+    ipam:
+      config:
+        - subnet: 172.31.7.0/24
+          gateway: 172.31.7.1  # passerelle stable injectee en ANTHROPIC_BASE_URL du durci
+
+  # --- tp_egress : egress LIBRE (Internet) — profil NU uniquement -------------
+  #  Materialise l'ABSENCE de confinement de NU (il joint n'importe quel tiers).
+  #  L'agent DURCI n'y est PAS branche.
+  tp_egress:
+    name: tp_egress
+    driver: bridge
+    internal: false            # route de sortie (NAT vers l'hote/Internet)

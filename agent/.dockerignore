@@ -1,0 +1,76 @@
+# =============================================================================
+#  .dockerignore — contexte de build de l'image claude-hardened
+#  Groupe "image" du TP
+# -----------------------------------------------------------------------------
+#  But : reduire le contexte envoye au daemon Docker et, SURTOUT, garantir
+#  qu'AUCUN secret ni artefact local ne finisse par erreur dans une couche
+#  d'image. Seuls Dockerfile + entrypoint.sh sont reellement necessaires au
+#  build ; le profil seccomp est consomme au RUNTIME (--security-opt), pas
+#  copie dans l'image.
+#
+#  Strategie : on garde par defaut le contexte permissif (pas de tout-ignorer)
+#  car le dossier agent/ ne contient que les fichiers du groupe, mais on exclut
+#  explicitement toutes les categories sensibles ou inutiles.
+# =============================================================================
+
+# --- Le profil seccomp n'est PAS copie dans l'image (usage runtime seul) -----
+seccomp-claude.json
+
+# --- Secrets / credentials : NE JAMAIS embarquer (defense critique) ----------
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.env
+.env.*
+*.token
+*token*
+*secret*
+*credential*
+.npmrc
+.netrc
+.aws/
+.ssh/
+.gnupg/
+
+# --- Etat / config locale d'agents (ne doit pas fuiter dans l'image) ---------
+.claude/
+.config/
+
+# --- Artefacts de build / dependances (inutiles, alourdissent le contexte) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+*.tsbuildinfo
+
+# --- VCS et metadonnees de depot ---------------------------------------------
+.git/
+.gitignore
+.gitattributes
+
+# --- Caches, logs, temporaires -----------------------------------------------
+*.log
+*.tmp
+*.swp
+*.swo
+*.bak
+.cache/
+tmp/
+out/
+
+# --- Specifiques OS / editeurs -----------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# --- Documentation / divers non requis au build ------------------------------
+#  On exclut la documentation Markdown du contexte de build (inutile a l'image).
+#  Le Dockerfile et entrypoint.sh n'ont PAS l'extension .md : ils restent donc
+#  toujours dans le contexte (aucune reinclusion explicite necessaire).
+*.md

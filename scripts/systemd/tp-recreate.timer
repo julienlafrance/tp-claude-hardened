@@ -1,0 +1,22 @@
+# =============================================================================
+#  tp-recreate.timer — planifie la recreation anti-persistance toutes les 24 h.
+# -----------------------------------------------------------------------------
+#  A DEPOSER DANS L'INSTANCE INCUS (tp-claude-host) : /etc/systemd/system/tp-recreate.timer
+#  Installation (DANS l'instance, PAS sur corrin) :
+#    cp /root/tp/scripts/systemd/tp-recreate.{service,timer} /etc/systemd/system/
+#    systemctl daemon-reload
+#    systemctl enable --now tp-recreate.timer
+#    systemctl list-timers tp-recreate.timer      # verifier le prochain declenchement
+# =============================================================================
+[Unit]
+Description=Declenche la recreation anti-persistance du durci toutes les 24 h
+
+[Timer]
+# Tous les jours a 04:00 (heure locale). Persistent=true rejoue un declenchement
+# manque si la machine etait eteinte a l'heure prevue.
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+Unit=tp-recreate.service
+
+[Install]
+WantedBy=timers.target

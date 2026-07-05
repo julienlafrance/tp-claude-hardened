@@ -1,0 +1,67 @@
+# =============================================================================
+#  .gitignore — TP « Durcissement d'un agent Claude Code en Docker »
+# -----------------------------------------------------------------------------
+#  GROUPE COMPOSE.
+#  Empeche le commit de secrets de runtime, des preuves d'attaque et des logs.
+# =============================================================================
+
+# --- Secrets de runtime (JAMAIS committes) -----------------------------------
+#  Le .env reel contient la virtual key LiteLLM scopee -> hors depot.
+.env
+.env.*
+# ... mais on GARDE le modele committe :
+!.env.example
+
+# --- Preuves d'attaque / artefacts generes -----------------------------------
+#  Captures, dumps, logs d'exfil, sorties de la suite d'attaque.
+evidence/
+out/
+**/evidence/
+
+# --- Copies de config jetables par profil (runtime) --------------------------
+#  Generees a chaque run par les steps 03/04/06 a partir de tp/config/.
+#  La source config/ est committee ; ces copies ne le sont JAMAIS.
+.runtime/
+
+# --- Caches Python -----------------------------------------------------------
+__pycache__/
+*.pyc
+
+# --- Logs --------------------------------------------------------------------
+*.log
+logs/
+
+# --- Eventuels secrets factices generes au runtime ---------------------------
+#  (le fichier fige tp/config/fake_token.txt est gere par le groupe config ;
+#   ici on ignore d'eventuels secrets generes dynamiquement hors config/)
+secrets/
+*.secret
+*.pem
+*.key
+
+# --- Secrets backend LiteLLM : repertoire .secret/ ---------------------------
+#  ATTENTION : "*.secret" ci-dessus capture AUSSI le repertoire ".secret" lui-meme
+#  (git n'entre alors pas dedans). On le RE-INCLUT explicitement ICI (apres, donc
+#  prioritaire), puis on ignore son CONTENU SAUF le README et le modele .example.
+#  Le vrai .secret/litellm.env (virtual key scopee) reste ainsi hors depot public.
+!.secret/
+.secret/*
+!.secret/README.md
+!.secret/litellm.env.example
+
+# --- Cle SSH publique specifique au poste (le vrai fichier reste local) -------
+#  Non secrete (cle PUBLIQUE), mais propre a une machine -> on committe seulement
+#  le modele avec le durcissement forced-command. Deployeur : copier l'exemple.
+config/ssh-authorized_keys
+!config/ssh-authorized_keys.example
+
+# --- Artefacts runtime laisses dans le workspace -----------------------------
+workspace/_healthcheck_*.txt
+
+# --- Bruit d'OS / editeurs ---------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

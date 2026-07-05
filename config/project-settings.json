@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_commentaire_fr_1": "===================================================================",
+  "_commentaire_fr_2": "  settings.json PROJET (Claude Code) — ACTIF PROTEGE par le TP.",
+  "_commentaire_fr_3": "  Chemin dans le conteneur : /workspace/.claude/settings.json",
+  "_commentaire_fr_4": "  ",
+  "_commentaire_fr_5": "  POURQUOI C'EST UNE CIBLE D'ATTAQUE DE PREMIER PLAN :",
+  "_commentaire_fr_6": "  La section 'hooks' ci-dessous declare des commandes shell que",
+  "_commentaire_fr_7": "  Claude Code execute AUTOMATIQUEMENT (avant/apres l'usage d'outils).",
+  "_commentaire_fr_8": "  Un attaquant qui parvient a REECRIRE ce fichier peut injecter un",
+  "_commentaire_fr_9": "  hook malveillant (ex: PreToolUse qui exfiltre, ouvre un reverse",
+  "_commentaire_fr_10": "  shell, ou desactive des garde-fous) qui s'execute des le demarrage",
+  "_commentaire_fr_11": "  de la session, AVANT meme le dialogue de confiance utilisateur.",
+  "_commentaire_fr_12": "  ",
+  "_commentaire_fr_13": "  CONTRE-MESURE (anneau 2, profil DURCI) : ce fichier est monte en",
+  "_commentaire_fr_14": "  lecture seule (bind :ro, verrou KERNEL) depuis une source figee en",
+  "_commentaire_fr_15": "  root:root 0444. ATTAQUE #1 de la matrice -> nu=Reussie, durci=Bloquee.",
+  "_commentaire_fr_16": "  Le HOOK ci-dessous est BENIN : il journalise simplement chaque appel",
+  "_commentaire_fr_17": "  d'outil dans /tmp (tmpfs ephemere) — c'est la 'ligne de base' saine",
+  "_commentaire_fr_18": "  que l'attaque #1 cherchera a remplacer par un hook hostile.",
+  "_commentaire_fr_19": "===================================================================",
+
+  "permissions": {
+    "_commentaire_fr": "Politique de permissions realiste : on autorise les outils de lecture/edition usuels et quelques commandes shell sures, on refuse explicitement les commandes destructrices et l'acces aux secrets. Defense applicative qui COMPLETE (sans remplacer) le verrouillage kernel du FS.",
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(npm run build)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(nc:*)",
+      "Bash(:* /run/secrets/*)",
+      "Read(/run/secrets/**)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*token*)",
+      "WebFetch"
+    ]
+  },
+
+  "env": {
+    "_commentaire_fr": "Variables d'environnement projet benignes. Aucun secret ici : les secrets ne doivent JAMAIS etre stockes dans un fichier de config versionne ni dans l'image (injection runtime scopee uniquement).",
+    "PROJECT_NAME": "facture-service",
+    "NODE_ENV": "development",
+    "LANG": "fr_FR.UTF-8"
+  },
+
+  "hooks": {
+    "_commentaire_fr_1": "SECTION HOOKS — cible de l'ATTAQUE #1 (injection de hook).",
+    "_commentaire_fr_2": "Hook BENIN de reference : a chaque PreToolUse, on journalise l'outil",
+    "_commentaire_fr_3": "appele dans /tmp/claude-hooks.log (tmpfs ephemere, ecrivable).",
+    "_commentaire_fr_4": "Sur l'agent NU, l'attaquant remplacera ce hook par une commande",
+    "_commentaire_fr_5": "hostile (exfil/persistance) — l'ecriture aboutit (config rw).",
+    "_commentaire_fr_6": "Sur l'agent DURCI, toute tentative de reecriture echoue (bind :ro).",
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s PreToolUse: %s\\n' \"$(date -u +%FT%TZ)\" \"${CLAUDE_TOOL_NAME:-?}\" >> /tmp/claude-hooks.log 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

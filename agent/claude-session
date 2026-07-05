@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  claude-session — FORCED COMMAND de la session SSH (dropbear) du profil durci.
+# -----------------------------------------------------------------------------
+#  Pourquoi ce wrapper ?
+#    dropbear (comme OpenSSH) NE propage PAS l'environnement du conteneur aux
+#    sessions SSH : il construit un env minimal (PATH/HOME/USER/SHELL). Or Claude
+#    Code a besoin, au lancement, des variables backend injectees au `docker run`
+#    (ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN, le proxy d'egress, le modele...).
+#    Sans rechargement, `claude` lance par SSH perdrait son backend LiteLLM et son
+#    proxy -> il echouerait ou parlerait dans le vide.
+#
+#  Mecanique :
+#    L'entrypoint du conteneur depose ces variables dans /tmp/agent.env (tmpfs,
+#    world-writable 1777 -> l'agent non-root peut y ecrire). Ce wrapper les
+#    recharge puis `exec claude`. C'est le `command="..."` de authorized_keys, donc
+#    TOUTE session SSH (quoi que demande le client) atterrit dans Claude Code.
+#
+#  Securite : aucun secret n'est fabrique ici ; on relit seulement l'env de
+#    session depose par l'entrypoint (jamais committe, jamais dans une image).
+# =============================================================================
+set -a
+[ -r /tmp/agent.env ] && . /tmp/agent.env
+set +a
+
+# PATH explicite : une session dropbear demarre avec un PATH minimal qui peut
+# ne PAS contenir /usr/local/bin (ou npm a installe `claude`). On le force.
+export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${PATH:+:$PATH}"
+
+# Si le client a fourni une commande (SSH_ORIGINAL_COMMAND), on l'ignore
+# volontairement : le rail est unique -> Claude Code interactif.
+exec claude

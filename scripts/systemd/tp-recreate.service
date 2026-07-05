@@ -1,0 +1,21 @@
+# =============================================================================
+#  tp-recreate.service — recreation anti-persistance du conteneur durci.
+# -----------------------------------------------------------------------------
+#  A DEPOSER DANS L'INSTANCE INCUS (tp-claude-host), PAS sur corrin :
+#      /etc/systemd/system/tp-recreate.service
+#  Declenche par tp-recreate.timer (24 h). Pilote le demon Docker LOCAL de
+#  l'instance (docker) -> User=root. Le chemin ExecStart est celui du TP DANS
+#  l'instance (/root/tp) ; l'adapter si le depot est ailleurs dans l'instance.
+# =============================================================================
+[Unit]
+Description=TP - recreation anti-persistance du conteneur durci Claude Code
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/root/tp/scripts/recreate-daily.sh
+# Duree de garde : la recreation (destroy + config + run) reste courte ; on borne
+# tout de meme pour eviter un blocage silencieux.
+TimeoutStartSec=300

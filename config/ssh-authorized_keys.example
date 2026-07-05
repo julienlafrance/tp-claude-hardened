@@ -1,0 +1,20 @@
+# =============================================================================
+#  ssh-authorized_keys.example — MODELE (committe). Copier en
+#  config/ssh-authorized_keys (gitignore) et y mettre VOTRE cle publique.
+#      cp config/ssh-authorized_keys.example config/ssh-authorized_keys
+# -----------------------------------------------------------------------------
+#  Cle(s) publique(s) autorisee(s) a ouvrir une session SSH vers le profil DURCI
+#  (dropbear DANS le conteneur). INJECTE A CHAQUE (RE)CREATION : monte :ro sur
+#  /home/agent/.ssh/authorized_keys par steps/06-run-durci.sh.
+#
+#  Durcissement de l'acces (options dropbear, AVANT la cle) :
+#    - command="/usr/local/bin/claude-session" : FORCED COMMAND. Quoi que demande
+#      le client, la session lance Claude Code (rail unique, jamais de shell).
+#    - no-port-forwarding / no-agent-forwarding / no-x11-forwarding : aucun
+#      rebond reseau possible via cette session.
+#    (PAS de no-pty : Claude Code est une TUI -> il lui FAUT un pseudo-terminal.)
+#
+#  Auth par CLE uniquement (dropbear lance avec -s : mots de passe desactives).
+#  1 cle publique par ligne ; remplacer le placeholder ci-dessous par la votre.
+# =============================================================================
+command="/usr/local/bin/claude-session",no-port-forwarding,no-agent-forwarding,no-x11-forwarding ssh-ed25519 AAAA_VOTRE_CLE_PUBLIQUE_ICI votre-poste

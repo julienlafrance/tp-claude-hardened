@@ -1,0 +1,42 @@
+# =============================================================================
+#  allowlist.txt — Domaines d'egress AUTORISES pour l'agent durci
+# =============================================================================
+#
+#  POSTURE : default-deny. Tout domaine ABSENT de cette liste est REFUSE (403)
+#  par le proxy (proxy/addon.py). Une ligne = un domaine.
+#
+#  Regle de correspondance (cf. _host_allowed dans addon.py) :
+#    - egalite exacte du host, OU
+#    - sous-domaine d'un domaine list
+
+#  Exemple : "backend-host" autorise "backend-host" (egalite exacte),
+#  mais PAS "backend-host.attacker.net" ni une autre IP.
+#
+#  Format :
+#    - une entree par ligne, en minuscules ;
+#    - lignes vides et lignes commencant par '#' ignorees.
+#
+#  RAPPEL : etre dans cette liste = OCTROI DE CAPACITE, pas un blanc-seing.
+#  Meme pour ces domaines, le proxy valide ENSUITE le token de session
+#  provisionne (BONUS MITM token-scope) et inspecte le contenu (anti-exfil).
+# =============================================================================
+
+# --- Backend LLM EXTERNE (LiteLLM sur ixia -> Ollama) -----------------------
+# SEULE destination d'egress autorisee : l'endpoint modele LiteLLM (backend-host).
+# Claude Code parle au backend local via ce point unique ; AUCUN egress vers
+# Anthropic. ixia est un serveur EXTERNE (hors perimetre de durcissement,
+# suppose securise par ailleurs), joignable ICI au travers du proxy.
+backend-host
+
+# Surfacage LABO du meme endpoint : dans l'hote Incus de lab, ixia:3101 n'est PAS
+# routable directement depuis le conteneur. Il est expose localement par le
+# chainage "2 bridges, juste le port" : proxy-device Incus (instance:3101 ->
+# backend-host:3101) + passerelle Docker (host.docker.internal -> instance).
+# La durci ne connait donc QUE host.docker.internal:3101 (aucune route vers
+# backend-host) -> on autorise ce nom, qui MAPPE conceptuellement vers ixia.
+host.docker.internal
+
+# NB : AUCUNE cible d'exfil "maison" n'est listee. Une cible d'exfil = un serveur
+# TIERS hors perimetre ; la defense se PROUVE par le BLOCAGE (403), pas par un
+# serveur qui recoit. La demo du BONUS se fait donc SUR la destination autorisee
+# (l'endpoint modele) : une cle/identite etrangere y est rejetee (token-scope).
