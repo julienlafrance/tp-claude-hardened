@@ -49,6 +49,11 @@ secrets/
 !.secret/README.md
 !.secret/litellm.env.example
 
+# --- Code RETIRE conserve en local ("old/") — JAMAIS committe ----------------
+#  On ne SUPPRIME pas le code ecarte (ex. proxy/ et exfil/ du design a proxy) :
+#  on le deplace sous old/ pour reference locale, mais il reste HORS depot.
+old/
+
 # --- Cle SSH publique specifique au poste (le vrai fichier reste local) -------
 #  Non secrete (cle PUBLIQUE), mais propre a une machine -> on committe seulement
 #  le modele avec le durcissement forced-command. Deployeur : copier l'exemple.
