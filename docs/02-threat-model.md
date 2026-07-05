@@ -63,7 +63,7 @@ instructions** (mémoire). Le tableau ci-dessous cartographie la surface réelle
 | `~/.claude/settings.json`, `settings.local.json` | utilisateur | idem projet, **tous projets** | **exécution** | bind / placeholder `:ro` |
 | `~/.claude/CLAUDE.md` | utilisateur | mémoire utilisateur | instruction | placeholder `:ro` |
 | `~/.claude/skills\|commands\|agents` | utilisateur | skills/commandes/agents globaux | **exécution** | bind / placeholder `:ro` |
-| `~/.claude/` (état : `sessions/`, `projects/`, `shell-snapshots/`, `telemetry/`, `.claude.json`) | utilisateur | état runtime légitime | — | **tmpfs (rw, éphémère)** — *résiduel documenté §2.6* |
+| `~/.claude/` (état : `sessions/`, `projects/`, `shell-snapshots/`, `telemetry/`, `.claude.json`) | utilisateur | état runtime légitime | — | **tmpfs (rw, éphémère)** — *résiduel documenté §2.7* |
 | `/etc/claude-code/managed-settings.json` | managed | politique admin (précédence max) | **exécution** | **absent** (non déployé ici) |
 | env `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` | runtime | routage API / auth | redirection/exfil | fixés au run ; `API_KEY` **vide**, seule une **virtual key scopée** |
 
@@ -73,7 +73,7 @@ instructions** (mémoire). Le tableau ci-dessous cartographie la surface réelle
 > NEUF** (settings.local.json, commands/, agents/, hooks/, un CLAUDE.md neuf) reste possible. Le
 > `sandbox-runtime` d'Anthropic tire la même conclusion : il *« refuse l'écriture des `settings.json`
 > à **tous** les scopes »* (<https://github.com/anthropic-experimental/sandbox-runtime>). Nous avons
-> donc durci **au niveau du répertoire** (§2.5 ; `docs/04`).
+> donc durci **au niveau du répertoire** (§2.6 ; `docs/04`).
 
 ---
 
@@ -116,7 +116,60 @@ implémente ce TP.
 
 ---
 
-## 2.5 Ce que nous avons **testé** sur la surface
+## 2.5 Le modèle : artefact non auditable de la chaîne d'approvisionnement
+
+§2.4 montre que la couche modèle **ne protège pas**. Le problème est plus profond : **le modèle
+lui-même est un actif non fiable**, et à trois titres.
+
+**(a) On ne sait pas auditer un LLM.** Lire des poids ne dit rien de ce qu'ils encodent. Anthropic
+a montré qu'un **backdoor délibéré survit à tout l'entraînement de sécurité** standard (SFT, RLHF,
+entraînement adversarial) — l'entraînement adversarial tend même à **cacher** le comportement
+plutôt qu'à le retirer, et l'effet est **le plus fort sur les plus gros modèles** (*Sleeper Agents*,
+arXiv:2401.05566, <https://arxiv.org/abs/2401.05566>). Corollaire : **l'éditeur du modèle est un
+acteur potentiel de la menace** (catégorie 3, portée à la source), et aucun test comportemental ne
+peut certifier un modèle « propre ».
+
+**(b) Même un éditeur honnête livre un artefact empoisonnable en amont.** Un **nombre quasi constant
+et faible** de documents empoisonnés (~**250**, indépendamment de la taille du modèle : 600 M → 13 B)
+suffit à implanter un backdoor par empoisonnement des données de pré-entraînement (Anthropic + UK
+AISI + Alan Turing Institute, oct. 2025, arXiv:2510.07192,
+<https://www.anthropic.com/research/small-samples-poison>). Le poids téléchargé est donc à traiter
+comme une **donnée non fiable** — OWASP **LLM04:2025 Data & Model Poisoning** ; MITRE ATLAS
+**AML.T0020 Poison Training Data** / **AML.T0018 Backdoor ML Model**.
+
+**(c) Le fichier de modèle et son hébergement sont eux-mêmes une surface.** Charger un modèle =
+**exécuter du contenu** : des modèles piégés sur Hugging Face obtiennent l'exécution de code par
+désérialisation `pickle` (« **nullifAI** », ReversingLabs, fév. 2025,
+<https://www.reversinglabs.com/blog/rl-identifies-malware-ml-model-hosted-on-hugging-face>). Et la
+**pile d'inférence** ajoute sa propre surface distante : Ollama **CVE-2024-37032 « Probllama »**
+(path traversal → RCE, Wiz) ; LiteLLM **CVE-2026-42208** (injection SQL **pré-auth**, CVSS 9.8,
+exploitée ~36 h après divulgation). *(OWASP **LLM03:2025 Supply Chain**.)* **Durcir Ollama/LiteLLM
+est hors périmètre de ce TP** — mais un modèle de menace sérieux le **nomme** : c'est une surface à
+durcir à part entière.
+
+**(d) Donc la confiance doit être ancrée dans la responsabilité, pas dans l'audit.** Puisqu'on ne
+peut pas *vérifier* un modèle, la seule confiance disponible est **juridique et contractuelle** : un
+fournisseur **responsable** (« liable ») de ce que fait son modèle, tenu à des obligations de
+**provenance/documentation** (UE **AI Act art. 53**, obligations des fournisseurs de modèles GPAI, en
+application depuis le 02/08/2025 ; **ANSSI-PA-102** ; **ENISA** *AI Threat Landscape*). Cela a une
+dimension de **souveraineté** : ce recours est **illusoire avec un fournisseur soumis à une
+juridiction non coopérative** (p. ex. chinoise — et l'agent testé ici, **`qwen` d'Alibaba**, est
+précisément dans ce cas), plus crédible avec une entité **européenne** (p. ex. française) ; et pour
+les **infrastructures critiques** (défense, énergie, réseaux de communication), même un modèle
+américain **auto-hébergé** appellerait un durcissement **très poussé à tous les niveaux** (*hors
+périmètre de ce TP*). *(Analyse de gouvernance : les jugements de juridiction relèvent d'une
+appréciation de risque, non d'une norme.)*
+
+**Synthèse.** Le modèle est non fiable à **trois niveaux** — son **jugement** (pas de garde-fous,
+§2.4), son **intégrité** (backdoor/empoisonnement, non auditable — (a) et (b)), sa **provenance**
+(chaîne d'approvisionnement et juridiction — (c) et (d)). Le seul élément **vérifiable et
+déterministe** reste la **frontière d'architecture/filesystem**. D'où le principe directeur de ce
+TP : traiter l'agent comme du **code entièrement non fiable, quel que soit le modèle**, et faire
+porter la sécurité sur le **conteneur**, pas sur le LLM.
+
+---
+
+## 2.6 Ce que nous avons **testé** sur la surface
 
 Le durcissement n'est pas postulé, il est **éprouvé**. Programme de tests (preuves :
 `docs/preuves/`) :
@@ -138,7 +191,7 @@ distingue un durcissement réel d'une simple validation des attaques listées.
 
 ---
 
-## 2.6 Surface résiduelle (honnêteté)
+## 2.7 Surface résiduelle (honnêteté)
 
 Un modèle de menace sérieux nomme ce qu'il ne couvre pas :
 
@@ -157,7 +210,7 @@ Un modèle de menace sérieux nomme ce qu'il ne couvre pas :
 
 ---
 
-## 2.7 Cadres de référence (sourcés)
+## 2.8 Cadres de référence (sourcés)
 
 | Menace | Cadre / source |
 |---|---|
@@ -169,8 +222,13 @@ Un modèle de menace sérieux nomme ce qu'il ne couvre pas :
 | RCE via commande allowlistée / bypass sandbox | CVE-2025-54795 / CVE-2025-54794 |
 | MCP tool poisoning / rug-pull | Invariant Labs ; **CVE-2025-54136 (MCPoison)** |
 | Exfil via domaine autorisé | Incident **Cowork** (Anthropic ; PromptArmor/Oasis) |
+| Modèle non auditable / backdoor persistant | *Sleeper Agents* (arXiv 2401.05566) ; MITRE ATLAS **AML.T0018** |
+| Empoisonnement de données (échelle ~constante) | OWASP **LLM04:2025** ; Anthropic+AISI+Turing (arXiv 2510.07192) ; ATLAS **AML.T0020** |
+| Chaîne d'appro. modèle / fichier / pile d'inférence | OWASP **LLM03:2025** ; ATLAS **AML.T0010** ; nullifAI (RL) ; Ollama CVE-2024-37032 ; LiteLLM CVE-2026-42208 |
+| Provenance / responsabilité / souveraineté | UE **AI Act art. 53** ; **ANSSI-PA-102** ; **ENISA** *AI Threat Landscape* |
 
-> Ces CVE/incidents **réels** établissent qu'un agent injecté doit être traité comme du **code non
-> fiable** : le conteneur durci est l'anneau de **containment déterministe** qui borne le rayon
-> d'impact quand les protections applicatives — et *a fortiori* un modèle OSS sans garde-fous —
-> cèdent. (Détail des sources : `docs/12-references-menaces.md`.)
+> Ces CVE/incidents **réels** établissent qu'un agent injecté — et le modèle qui le pilote — doivent
+> être traités comme du **code non fiable** : le conteneur durci est l'anneau de **containment
+> déterministe** qui borne le rayon d'impact quand les protections applicatives — et *a fortiori* un
+> modèle OSS sans garde-fous, non auditable — cèdent. (Détail des sources et niveaux de confiance :
+> `docs/12-references-menaces.md`.)

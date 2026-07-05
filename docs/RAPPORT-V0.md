@@ -169,9 +169,24 @@ internes** : la protection au niveau LLM ne se dégrade pas, elle **disparaît**
 OSS n'est donc **pas une garantie** contre le détournement — plutôt l'inverse. **Conséquence :** la
 frontière **déterministe** (FS `:ro`, non-root, cap-drop, seccomp, egress verrouillé) n'est pas un
 complément mais le **seul rempart fiable** — *« containment at the environment layer first »*
-(Anthropic). Modèle de menace complet + sources : [`docs/02`](02-threat-model.md),
-[`docs/12`](12-references-menaces.md) *(OWASP LLM01/06/07, MITRE ATLAS AML.T0051/T0080/T0081, CVE
-réelles).*
+(Anthropic).
+
+**Plus profond — le modèle est un actif non fiable *et non auditable*.** On ne sait pas auditer un
+LLM : un backdoor délibéré **survit à tout l'entraînement de sécurité** (*Sleeper Agents*,
+arXiv 2401.05566), et **~250 documents** suffisent à empoisonner un modèle de n'importe quelle
+taille (Anthropic/AISI/Turing, arXiv 2510.07192). L'**éditeur lui-même** est donc un acteur de la
+menace, et le poids téléchargé une **donnée non fiable** (OWASP **LLM03 Supply Chain** / **LLM04
+Poisoning**). Le fichier de modèle et sa **pile d'hébergement** (Ollama/LiteLLM) forment même une
+surface exécutable (pickle RCE « nullifAI » ; Ollama CVE-2024-37032 ; LiteLLM CVE-2026-42208) — à
+durcir, **hors périmètre de ce TP mais nommé**. Faute d'audit possible, la confiance ne peut
+reposer que sur la **responsabilité contractuelle et la juridiction** du fournisseur (UE AI Act
+art. 53 ; ANSSI-PA-102) : recours **illusoire** pour un modèle chinois (ici **`qwen` d'Alibaba**),
+plus crédible pour une entité européenne ; pour une **infrastructure critique** (défense, énergie,
+réseaux), un modèle même américain auto-hébergé exigerait un durcissement très poussé à tous les
+niveaux. Le modèle est ainsi non fiable à **trois niveaux — jugement, intégrité, provenance** — ce
+qui ne fait que **renforcer** la conclusion : la sécurité doit porter sur le **conteneur**, pas sur
+le LLM. Modèle de menace complet + sources : [`docs/02`](02-threat-model.md) §2.4-2.5,
+[`docs/12`](12-references-menaces.md) *(OWASP LLM01/03/04/06/07, MITRE ATLAS, CVE réelles).*
 
 ---
 

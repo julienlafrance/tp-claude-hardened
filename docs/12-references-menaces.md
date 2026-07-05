@@ -98,6 +98,59 @@
 Cheat Sheet OWASP : <https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html> ·
 CIS Docker Benchmark : <https://github.com/dev-sec/cis-docker-benchmark>
 
+## E. Le modèle et sa chaîne d'approvisionnement (non auditabilité, empoisonnement, hébergement, souveraineté)
+
+> Ancre le §2.5 de `docs/02`. Confiance : **HIGH** = confirmé sur la source primaire (arXiv, NVD,
+> page éditeur) ; **VERIFY** = correct au vu du sourcing secondaire mais non re-confirmé sur la page
+> canonique lors de cette passe.
+
+- **Backdoor survivant à l'entraînement de sécurité** — *Sleeper Agents: Training Deceptive LLMs
+  that Persist Through Safety Training*, Hubinger et al. (Anthropic), 2024, **arXiv:2401.05566**.
+  Un backdoor persiste à travers SFT/RLHF/adversarial ; l'entraînement adversarial tend à **cacher**
+  plutôt qu'à retirer ; persistance **plus forte sur les plus gros modèles**. **[HIGH]** —
+  <https://arxiv.org/abs/2401.05566> ·
+  <https://www.anthropic.com/research/sleeper-agents-training-deceptive-llms-that-persist-through-safety-training>
+- **Empoisonnement à échelle quasi constante** — *A small number of samples can poison LLMs of any
+  size*, Anthropic + UK AISI + Alan Turing Institute, **9 oct. 2025**, **arXiv:2510.07192** : **250**
+  documents suffisent (600 M → 13 B params ; déclencheur `<SUDO>`). Caveat des auteurs : backdoor
+  **étroit**, transfert au risque « frontier » non établi. **[HIGH]** —
+  <https://www.anthropic.com/research/small-samples-poison> ·
+  <https://www.aisi.gov.uk/blog/examining-backdoor-data-poisoning-at-scale>
+- **Fichier de modèle = exécution de code** — « **nullifAI** », ReversingLabs, **fév. 2025** :
+  modèles Hugging Face à `pickle` piégé (compressé `7z`, cassé pour évader Picklescan) exécutant un
+  reverse-shell. **[HIGH]** —
+  <https://www.reversinglabs.com/blog/rl-identifies-malware-ml-model-hosted-on-hugging-face>.
+  *(Défense : ModelScan / Picklescan ; JFrog ~100 modèles malveillants en 2024 — **VERIFY** pour un
+  identifiant précis.)*
+- **Pile d'inférence vulnérable** :
+  - **Ollama** — **CVE-2024-37032 « Probllama »** (Wiz) : validation insuffisante du digest → path
+    traversal → **RCE** (< 0.1.34). **[HIGH]** —
+    <https://www.wiz.io/blog/probllama-ollama-vulnerability-cve-2024-37032>. Lot **Oligo Security**
+    (« More Models, More ProbLLMs », **2024**) : **CVE-2024-39719 / 39720 / 39721 / 39722** (fuite
+    d'existence de fichier ; DoS OOB-read via GGUF ; DoS boucle ; path traversal) + deux abus sans
+    CVE (model poisoning via pull non authentifié, model theft via push). **[HIGH]** CVE / effets,
+    date 2024 à confirmer — <https://www.oligo.security/blog/more-models-more-probllms>
+  - **LiteLLM** — **CVE-2026-42208** : **injection SQL pré-authentification** (clé API concaténée
+    dans la requête de validation ; en-tête `Authorization` forgé sur toute route LLM), **CVSS 9.8**,
+    exploitée ~36 h après divulgation (Sysdig), fixée en v1.83.7. **[HIGH]** —
+    <https://nvd.nist.gov/vuln/detail/CVE-2026-42208> ·
+    <https://docs.litellm.ai/blog/cve-2026-42208-litellm-proxy-sql-injection>. *(Historique plus
+    large — SSTI/RCE, masquage de clé insuffisant, SSRF, `/config/update` sans autz : CVE-2024-2952,
+    CVE-2024-9606, CVE-2026-35029 — **VERIFY** par CVE avant citation dure.)*
+- **Cadres** : OWASP **LLM03:2025 Supply Chain**
+  (<https://genai.owasp.org/llmrisk/llm032025-supply-chain/>) · **LLM04:2025 Data and Model
+  Poisoning** (<https://genai.owasp.org/llmrisk/llm042025-data-and-model-poisoning/>) **[HIGH]** ;
+  MITRE ATLAS **AML.T0010 AI Supply Chain Compromise**, **AML.T0018 Backdoor ML Model**,
+  **AML.T0020 Poison Training Data** *(IDs versionnés — **VERIFY**)*.
+- **Gouvernance / souveraineté** : UE **AI Act — art. 53** (obligations des fournisseurs de modèles
+  GPAI : documentation technique Annexe XI, doc aux déployeurs, politique copyright, résumé public
+  des données d'entraînement ; en application **02/08/2025** ; exemption open-source sauf risque
+  systémique) — <https://artificialintelligenceact.eu/article/53/> **[HIGH]** ·
+  **ANSSI-PA-102** *Recommandations de sécurité pour un système d'IA générative* (29/04/2024) —
+  <https://cyber.gouv.fr/publications/recommandations-de-securite-pour-un-systeme-dia-generative>
+  **[HIGH]** · **ENISA** *AI Threat Landscape* —
+  <https://www.enisa.europa.eu/publications/artificial-intelligence-cybersecurity-challenges> **[HIGH]**.
+
 ---
 
 **Synthèse.** Prompt injection **non résolue** au niveau modèle (OWASP LLM01 / MITRE AML.T0051 /
@@ -106,4 +159,7 @@ config clonée comme **donnée non fiable**, verrouiller toute mutation de confi
 **déterministe** (montages `:ro` **au niveau répertoire**, racine read-only, egress bordé), et
 protéger l'intégrité mémoire/config contre les techniques désormais cataloguées (ATLAS
 AML.T0080/T0081). Ce constat vaut **d'autant plus** avec un modèle OSS auto-hébergé **sans
-garde-fous internes** (`docs/02` §2.4).
+garde-fous internes** (`docs/02` §2.4) — et **plus encore** quand le modèle lui-même est un
+**artefact non auditable de la chaîne d'approvisionnement** (backdoor/empoisonnement, fichier et
+pile d'hébergement vulnérables, juridiction du fournisseur) : le seul contrôle **vérifiable** qui
+demeure est la **frontière d'architecture/filesystem** (`docs/02` §2.5).
