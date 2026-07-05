@@ -91,7 +91,7 @@ fi
 #    - REQUIS DURS (provenant des autres groupes) : on echoue s'ils manquent.
 #    - On resout chaque chemin via realpath (symlinks resolus AVANT validation).
 #
-#    NB : ces fichiers sont produits par les groupes agent/ proxy/ exfil/ config/.
+#    NB : ces fichiers sont produits par les groupes agent/ config/.
 #    Le runner les CONSOMME ; il ne les cree pas.
 # -----------------------------------------------------------------------------
 require_file() {
@@ -116,11 +116,10 @@ require_dir() {
 
 info "Verification des fichiers attendus (produits par les autres groupes)..."
 
-# Images Dockerfiles (groupes agent/proxy/exfil).
+# Image agent (SEULE image du TP) + profil seccomp. Pas de proxy ni d'exfil :
+# provenance = ré-auth LiteLLM, egress = reseau tp_internal --internal (cf. docs/10).
 require_file "Dockerfile agent"  "$TP_ROOT/agent/Dockerfile"
 require_file "Profil seccomp"    "$TP_ROOT/agent/seccomp-claude.json"
-require_file "Dockerfile proxy"  "$TP_ROOT/proxy/Dockerfile"
-require_file "Dockerfile exfil"  "$TP_ROOT/exfil/Dockerfile"
 
 # Config figee de l'agent (groupe config). Noms autoritaires (cf. PLAN.md sec.8).
 require_file "Config project-settings.json" "$TP_ROOT/config/project-settings.json"

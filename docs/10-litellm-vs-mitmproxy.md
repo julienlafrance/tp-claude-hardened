@@ -66,11 +66,10 @@ fait le routage (le réseau).
 
 ## 4. Ce qu'il reste au proxy dédié — et pourquoi c'est marginal
 
-Le seul rôle **non** couvert par LiteLLM + réseau est le **swap jeton-de-session ↔
-virtual key** : garder la virtual key **hors de la sandbox** (l'agent ne détient
-qu'un jeton opaque, cf. [`addon.py`](../proxy/addon.py) — validation `SESSION_TOKEN`
-puis substitution `UPSTREAM_AUTH_TOKEN`). C'est un incrément **réel mais non
-catégoriel** :
+Le seul rôle **non** couvert par LiteLLM + réseau serait le **swap jeton-de-session ↔
+virtual key** : garder la virtual key **hors de la sandbox** (l'agent ne détiendrait
+qu'un jeton opaque qu'un proxy validerait puis substituerait par la vraie clé amont).
+C'est un incrément **réel mais non catégoriel** :
 
 - son bénéfice ne se matérialise que si un crédentiel peut **fuir** — or l'egress
   est déjà verrouillé ;

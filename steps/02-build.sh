@@ -10,8 +10,6 @@
 # En particulier, AUCUN proxy MITM dedie n'est deploye : la ré-authentification
 # amont (provenance) est portee par la gateway LiteLLM sur ixia et la coupure
 # d'egress par le reseau `tp_internal --internal` (cf. docs/10-litellm-vs-mitmproxy.md).
-# Le code proxy/addon.py reste dans le depot A TITRE DOCUMENTAIRE (illustration
-# du swap jeton↔virtual key), mais n'est ni construit ni execute.
 #
 # REGLE DE SECURITE : aucun secret ne doit entrer dans les LAYERS d'image
 #   (les secrets factices sont injectes au RUN, jamais au build). On ne passe

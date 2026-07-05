@@ -116,7 +116,7 @@ done
   echo "## Legende"
   echo
   echo "- *Reussie* = l'effet malveillant a abouti (ecriture/exfil/destruction reelle)."
-  echo "- ***Bloquee*** = l'attaque a echoue grace au durcissement (verrou kernel :ro, racine --read-only, secret non monte, proxy MITM token-scope...)."
+  echo "- ***Bloquee*** = l'attaque a echoue grace au durcissement (verrou kernel :ro, racine --read-only, secret non monte, egress coupe par tp_internal --internal, ré-auth LiteLLM rejetant une clé étrangère...)."
 } >> "$OUT_MD"
 
 ok "Table generee: $OUT_MD ($EXPECTED_OK/${#IDS[@]} couples conformes, $DEVIATIONS ecart(s))."
