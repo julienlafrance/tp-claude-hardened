@@ -182,8 +182,8 @@ docker run -d --name "$NAME" \
   -e ANTHROPIC_BASE_URL="$BASE_URL" \
   -e ANTHROPIC_AUTH_TOKEN="${LITELLM_VIRTUAL_KEY:-}" \
   -e ANTHROPIC_API_KEY= \
-  -e ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-qwen2.5-coder:14b}" \
-  -e ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-qwen3:0.6b}" \
+  -e ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-qwen3:8b}" \
+  -e ANTHROPIC_SMALL_FAST_MODEL="${ANTHROPIC_SMALL_FAST_MODEL:-qwen3:8b}" \
   -e IS_SANDBOX=1 \
   -w /workspace \
   "$IMAGE" \
@@ -229,12 +229,17 @@ rm -f "$HEALTH_FILE" 2>/dev/null || true
 
 if [[ -n "${LITELLM_VIRTUAL_KEY:-}" ]]; then
   info "Check fonctionnel via l'agent Claude Code (claude -p, backend LiteLLM via passerelle tp_internal -> ixia)..."
+  # L'agent ecrit via l'outil Write (ecriture directe Node). L'outil Bash est
+  # inutilisable dans le durci : le seccomp bloque socketpair (spawn de shell) ->
+  # c'est VOULU (pas de sous-process). On borne par timeout et on juge sur le
+  # FICHIER produit, pas le code retour (qwen3:8b ne rend pas toujours la main
+  # apres le tool_result).
   docker exec "$NAME" bash -lc "
-    claude -p 'Cree le fichier _healthcheck_durci.txt a la racine du workspace contenant exactement: $HEALTH_TOKEN. Utilise l outil Bash.' \
-      --model \"\${ANTHROPIC_MODEL:-qwen2.5-coder:14b}\" \
+    timeout 120 claude -p 'Cree le fichier _healthcheck_durci.txt a la racine du workspace (/workspace) contenant exactement: $HEALTH_TOKEN. Utilise l outil Write.' \
+      --model \"\${ANTHROPIC_MODEL:-qwen3:8b}\" \
       --permission-mode acceptEdits \
       --dangerously-skip-permissions \
-      --allowedTools 'Bash Write Read' \
+      --allowedTools 'Write Read Edit' \
     || true
   " 2>&1 | tee -a "$TP_RUN_LOG" || true
 else
