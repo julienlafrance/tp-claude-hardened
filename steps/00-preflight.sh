@@ -5,7 +5,7 @@
 # Tache unitaire : echoue (code != 0) si l'environnement n'est pas pret.
 #   - docker present + demon joignable ;
 #   - incus present (OPTIONNEL : seulement averti, sauf si l'anneau 1 est requis) ;
-#   - LITELLM_VIRTUAL_KEY + LITELLM_ENDPOINT presents et endpoint LiteLLM (ixia)
+#   - LITELLM_VIRTUAL_KEY + LITELLM_ENDPOINT presents et endpoint LiteLLM (le backend)
 #     joignable (l'agent Claude Code utilise ce backend externe pour tourner) ;
 #   - fichiers requis presents (Dockerfiles, profil seccomp, config figee) ;
 #   - resolution realpath des chemins sensibles (symlinks resolus AVANT usage).
@@ -55,7 +55,7 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 3) Backend LLM EXTERNE (LiteLLM sur ixia backend-host:3101 -> Ollama).
+# 3) Backend LLM EXTERNE (LiteLLM externe backend-host:3101 -> Ollama).
 #    L'agent Claude Code s'authentifie avec la cle LiteLLM SCOPEE
 #    (LITELLM_VIRTUAL_KEY -> ANTHROPIC_AUTH_TOKEN), PAS avec une cle Anthropic.
 #    On verifie : la cle scopee est definie, l'endpoint est defini, et l'endpoint
@@ -72,12 +72,12 @@ fi
 LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://backend-host:3101}"
 if [[ -n "${LITELLM_ENDPOINT}" ]]; then
   ok "LITELLM_ENDPOINT defini: $LITELLM_ENDPOINT"
-  # Joignabilite du backend externe (ixia). Endpoint de sante LiteLLM.
+  # Joignabilite du backend externe (le backend). Endpoint de sante LiteLLM.
   if command -v curl >/dev/null 2>&1; then
     if curl -fsS -m 5 "${LITELLM_ENDPOINT%/}/health/liveliness" >/dev/null 2>&1; then
       ok "Backend LiteLLM joignable (${LITELLM_ENDPOINT%/}/health/liveliness)."
     else
-      warn "Backend LiteLLM INJOIGNABLE a ${LITELLM_ENDPOINT%/}/health/liveliness (ixia backend-host:3101). Verifier qu'ixia est demarre/route ; le check fonctionnel des steps 04/06 echouera tant que le backend ne repond pas."
+      warn "Backend LiteLLM INJOIGNABLE a ${LITELLM_ENDPOINT%/}/health/liveliness (le backend backend-host:3101). Verifier que le backend est demarre/route ; le check fonctionnel des steps 04/06 echouera tant que le backend ne repond pas."
     fi
   else
     warn "curl absent : impossible de tester la joignabilite du backend LiteLLM (${LITELLM_ENDPOINT})."

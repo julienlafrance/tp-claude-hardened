@@ -2,7 +2,7 @@
 #  tp-recreate.timer — planifie la recreation anti-persistance toutes les 24 h.
 # -----------------------------------------------------------------------------
 #  A DEPOSER DANS L'INSTANCE INCUS (tp-claude-host) : /etc/systemd/system/tp-recreate.timer
-#  Installation (DANS l'instance, PAS sur corrin) :
+#  Installation (DANS l'instance, PAS sur le poste hote) :
 #    cp /root/tp/scripts/systemd/tp-recreate.{service,timer} /etc/systemd/system/
 #    systemctl daemon-reload
 #    systemctl enable --now tp-recreate.timer

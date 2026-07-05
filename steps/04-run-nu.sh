@@ -81,7 +81,7 @@ info "Lancement du profil NU ($NAME) — VULNERABLE par construction."
 #   - PAS de limites cgroups ;
 #   - reseau bridge PAR DEFAUT (egress libre) ;
 #   - secret MONTE en clair.
-#   - backend LLM EXTERNE LiteLLM (ixia backend-host:3101 -> Ollama) transmis
+#   - backend LLM EXTERNE LiteLLM (le backend backend-host:3101 -> Ollama) transmis
 #     via ANTHROPIC_BASE_URL/AUTH_TOKEN/MODEL ; AUCUNE cle Anthropic (API_KEY
 #     vide pour ne pas prendre le dessus sur AUTH_TOKEN).
 #   - detache, en sommeil : on 'exec' dedans pour le check et les attaques.
@@ -141,7 +141,7 @@ run_agent_check() {
   # (ANTHROPIC_AUTH_TOKEN, depuis LITELLM_VIRTUAL_KEY) conditionne la reussite ;
   # en son absence on bascule sur un fallback "bash pur" pour prouver au moins
   # que le runtime conteneur fonctionne. Le modele cible est servi par LiteLLM
-  # sur ixia (backend-host:3101) -> Ollama, d'ou --model qwen2.5-coder:14b.
+  # sur le backend externe (backend-host:3101) -> Ollama, d'ou --model qwen2.5-coder:14b.
   if [[ -n "${LITELLM_VIRTUAL_KEY:-}" ]]; then
     info "Check fonctionnel via l'agent Claude Code (claude -p, backend LiteLLM)..."
     docker exec "$NAME" bash -lc "
@@ -164,7 +164,7 @@ run_agent_check
 if [[ -f "$HEALTH_FILE" ]] && grep -q "$HEALTH_TOKEN" "$HEALTH_FILE" 2>/dev/null; then
   ok "Check fonctionnel NU REUSSI : $HEALTH_FILE contient le jeton attendu."
 else
-  warn "Check fonctionnel NU : le fichier attendu n'a pas le jeton (cle LiteLLM absente/refusee, backend ixia injoignable ?)."
+  warn "Check fonctionnel NU : le fichier attendu n'a pas le jeton (cle LiteLLM absente/refusee, backend injoignable ?)."
   warn "Le profil NU reste lance et utilisable pour les attaques (step 05)."
 fi
 

@@ -8,7 +8,7 @@
 # reseau et la coupure d'egress sont obtenus par le RUNTIME (steps 03/06 :
 # --read-only, binds :ro, --internal, cgroups), pas par des images d'infra.
 # En particulier, AUCUN proxy MITM dedie n'est deploye : la ré-authentification
-# amont (provenance) est portee par la gateway LiteLLM sur ixia et la coupure
+# amont (provenance) est portee par la gateway LiteLLM externe et la coupure
 # d'egress par le reseau `tp_internal --internal` (cf. docs/10-litellm-vs-mitmproxy.md).
 #
 # REGLE DE SECURITE : aucun secret ne doit entrer dans les LAYERS d'image

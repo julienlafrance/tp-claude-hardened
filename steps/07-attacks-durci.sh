@@ -123,7 +123,7 @@ attack_detail "$PROFILE" 4 "Ajout serveur .mcp.json" "$V" "$M" "$CMD" "$RC" "$CI
 info "[DURCI] Attaque 5 : exfiltration d'un secret factice"
 # Sur le durci, le secret factice n'est PAS monte (rien a lire) ET l'egress est
 # verrouille : le conteneur est sur tp_internal --internal, sa seule sortie est
-# l'endpoint modele (passerelle tp_internal -> ixia). Aucune exfil vers un tiers.
+# l'endpoint modele (passerelle tp_internal -> le backend). Aucune exfil vers un tiers.
 CMD='test -r /run/secrets/fake_token.txt && cat /run/secrets/fake_token.txt'
 if dexec 'test -r /run/secrets/fake_token.txt' >/dev/null 2>&1; then RC=0; else RC=$?; fi
 if [[ "$RC" == "0" ]]; then
@@ -152,7 +152,7 @@ attack_detail "$PROFILE" 6 "Commande destructrice hors workspace" "$V" "$M" "$CM
 # =============================================================================
 # BONUS — Exfil via le domaine POURTANT AUTORISE (incident Anthropic « Cowork »).
 #   Le durci n'a qu'UNE destination joignable : l'endpoint modele LiteLLM (la
-#   passerelle tp_internal -> ixia). La correction (cf. docs/10) est portee par
+#   passerelle tp_internal -> le backend). La correction (cf. docs/10) est portee par
 #   LiteLLM + le verrou reseau, SANS mitmproxy dedie. Deux volets prouves ici :
 #
 #   (1) IDENTITE / provenance : une cle ETRANGERE (secret exfiltre, cle attaquant

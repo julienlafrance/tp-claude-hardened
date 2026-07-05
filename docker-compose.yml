@@ -16,20 +16,20 @@
 #                    -> les memes attaques DOIVENT y etre bloquees.
 #
 #  PAS de proxy MITM dedie, PAS de serveur d'exfil, PAS de token de session :
-#    - PROVENANCE / identite : assuree par la GATEWAY LiteLLM sur ixia, qui
+#    - PROVENANCE / identite : assuree par la GATEWAY LiteLLM externe, qui
 #      ré-authentifie en amont avec SA propre cle et rejette (401) toute cle
 #      cliente etrangere -> l'attaque du compte usurpe (incident « Cowork »)
 #      meurt a la gateway.
 #    - DESTINATION / egress  : assuree par le RESEAU. L'agent durci est sur
 #      `tp_internal --internal` : sa SEULE sortie est la PASSERELLE du bridge,
-#      ou le device Incus `litellm` (point-a-point -> ixia:3101) ecoute. Aucune
+#      ou le device Incus `litellm` (point-a-point -> backend:3101) ecoute. Aucune
 #      route vers Internet, `api.anthropic.com` injoignable en direct.
 #    Argumentaire complet : docs/10-litellm-vs-mitmproxy.md.
 #
 #  Reseaux :
 #    - tp_internal : reseau INTERNAL (internal: true) => AUCUNE route Internet.
 #                    L'agent durci y est seul ; il ne joint que la passerelle
-#                    (device `litellm` = endpoint modele d'ixia). SUBNET FIGE
+#                    (device `litellm` = endpoint modele du backend). SUBNET FIGE
 #                    (172.31.7.0/24) pour une passerelle stable/predictible
 #                    (172.31.7.1) que Compose peut injecter en BASE_URL.
 #    - tp_egress   : reseau a egress LIBRE (internal: false = NAT/Internet) pour
@@ -123,7 +123,7 @@ services:
 
     # --- Variables d'environnement --------------------------------------------
     environment:
-      # Backend modele : la gateway LiteLLM sur ixia. L'auth est la virtual key
+      # Backend modele : la gateway LiteLLM externe. L'auth est la virtual key
       # LiteLLM SCOPEE (jamais la master key, jamais un secret Anthropic), via .env.
       ANTHROPIC_BASE_URL: ${LITELLM_ENDPOINT:-http://backend-host:3101}
       ANTHROPIC_AUTH_TOKEN: ${LITELLM_VIRTUAL_KEY:-}
@@ -217,7 +217,7 @@ services:
 
     # --- Variables d'environnement --------------------------------------------
     environment:
-      # Backend modele = PASSERELLE tp_internal (device `litellm` -> ixia:3101).
+      # Backend modele = PASSERELLE tp_internal (device `litellm` -> backend:3101).
       # Subnet fige (172.31.7.0/24) => passerelle stable 172.31.7.1. Injecte au
       # RUNTIME uniquement ; l'auth = virtual key LiteLLM SCOPEE (jamais un secret
       # Anthropic). Surchargeable par LITELLM_ENDPOINT.
@@ -230,7 +230,7 @@ services:
       # impose par un proxy. La seule destination joignable est la passerelle.
 
     # --- Reseau : tp_internal UNIQUEMENT (aucune route de sortie), IP FIXE ------
-    #  IP fixe 172.31.7.2 : le bridge SSH (corrin -> incus -> docker:2222) pointe
+    #  IP fixe 172.31.7.2 : le bridge SSH (le poste hote -> incus -> docker:2222) pointe
     #  sur cette adresse stable et reste valide entre recreations.
     networks:
       tp_internal:
@@ -261,7 +261,7 @@ networks:
 
   # --- tp_internal : reseau INTERNAL (AUCUNE route Internet) ------------------
   #  L'agent durci y est seul. Sa seule sortie est la PASSERELLE (172.31.7.1),
-  #  ou le device Incus `litellm` (point-a-point -> ixia:3101) ecoute.
+  #  ou le device Incus `litellm` (point-a-point -> backend:3101) ecoute.
   #  Equivaut a "docker network create --internal --subnet 172.31.7.0/24 tp_internal".
   tp_internal:
     name: tp_internal

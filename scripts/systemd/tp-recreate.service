@@ -1,7 +1,7 @@
 # =============================================================================
 #  tp-recreate.service — recreation anti-persistance du conteneur durci.
 # -----------------------------------------------------------------------------
-#  A DEPOSER DANS L'INSTANCE INCUS (tp-claude-host), PAS sur corrin :
+#  A DEPOSER DANS L'INSTANCE INCUS (tp-claude-host), PAS sur le poste hote :
 #      /etc/systemd/system/tp-recreate.service
 #  Declenche par tp-recreate.timer (24 h). Pilote le demon Docker LOCAL de
 #  l'instance (docker) -> User=root. Le chemin ExecStart est celui du TP DANS

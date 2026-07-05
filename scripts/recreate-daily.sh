@@ -2,7 +2,7 @@
 # =============================================================================
 # scripts/recreate-daily.sh — Recreation PERIODIQUE du conteneur durci.
 # -----------------------------------------------------------------------------
-# A LANCER DANS L'INSTANCE INCUS (tp-claude-host), PAS depuis corrin. N'utilise
+# A LANCER DANS L'INSTANCE INCUS (tp-claude-host), PAS depuis le poste hote. N'utilise
 # que `docker` + `bash` (le demon Docker vit DANS l'instance). AUCUNE commande
 # cote hote : la planification (cron/systemd) s'installe elle aussi DANS l'instance.
 #
@@ -20,7 +20,7 @@
 #   conteneur, PAS une rotation ; cf. docs/10). Ce script ne touche a aucun secret.
 #
 # BRIDGE SSH INCHANGE : le durci est recree avec une IP FIXE (172.31.7.2, cf.
-#   step 06). Le proxy device Incus qui compose la chaine SSH corrin -> incus ->
+#   step 06). Le proxy device Incus qui compose la chaine SSH le poste hote -> incus ->
 #   docker:2222 pointe sur cette IP stable -> il reste valide SANS re-pose. La
 #   recreation n'a donc jamais besoin de l'hote.
 #
@@ -87,4 +87,4 @@ else
   log "OK anti-persistance : $PROBE ABSENT apres recreation (etat runtime efface)."
 fi
 
-log "=== Recreation terminee avec succes (aucune action cote hote corrin). ==="
+log "=== Recreation terminee avec succes (aucune action cote hote). ==="

@@ -23,13 +23,13 @@
 #   Le durci est sur tp_internal --internal : il n'a AUCUNE route vers l'exterieur.
 #   Sa SEULE sortie est la passerelle FIGE du bridge tp_internal (172.31.7.1:3101),
 #   ou ecoute le device Incus `litellm` (proxy point-a-point instance:3101 ->
-#   ixia:3101). Consequence : l'agent n'atteint QUE l'endpoint modele LiteLLM et
-#   RIEN d'autre (Internet bloque). C'est le « default-deny sauf ixia:3101 »
+#   backend:3101). Consequence : l'agent n'atteint QUE l'endpoint modele LiteLLM et
+#   RIEN d'autre (Internet bloque). C'est le « default-deny sauf backend:3101 »
 #   realise par la topologie, sans firewall ni proxy conteneurise (cf.
 #   docs/10-litellm-vs-mitmproxy.md). La ré-authentification amont (provenance) et
 #   le scope sont assures par LiteLLM lui-meme.
 #
-# GESTION DES SECRETS : la VRAIE cle API Anthropic reste sur ixia (LiteLLM).
+# GESTION DES SECRETS : la VRAIE cle API Anthropic reste sur le backend externe (LiteLLM).
 #   L'agent ne detient qu'une VIRTUAL KEY LiteLLM scopee (LITELLM_VIRTUAL_KEY),
 #   injectee au runtime via ANTHROPIC_AUTH_TOKEN. Aucun secret Anthropic n'entre
 #   dans la sandbox.
@@ -57,7 +57,7 @@ WORKSPACE="$TP_ROOT/workspace"
 SECCOMP="$TP_ROOT/agent/seccomp-claude.json"
 
 # Port de l'endpoint modele LiteLLM, surface sur la passerelle tp_internal par le
-# device Incus `litellm` (listen instance:3101 -> connect ixia:3101).
+# device Incus `litellm` (listen instance:3101 -> connect backend:3101).
 LITELLM_PORT="${LITELLM_PORT:-3101}"
 
 # Subnet FIGE de tp_internal (IDENTIQUE au docker-compose.yml). Figer le subnet
@@ -66,7 +66,7 @@ LITELLM_PORT="${LITELLM_PORT:-3101}"
 # re-pose -> la recreation anti-persistance tourne ENTIEREMENT DANS l'instance
 # Incus (docker seul, aucune commande cote hote).
 NET_SUBNET="${TP_INTERNAL_SUBNET:-172.31.7.0/24}"
-NET_GW="${TP_INTERNAL_GW:-172.31.7.1}"     # passerelle = device litellm -> ixia:3101
+NET_GW="${TP_INTERNAL_GW:-172.31.7.1}"     # passerelle = device litellm -> backend:3101
 DURCI_IP="${DURCI_IP:-172.31.7.2}"         # IP FIXE du conteneur durci
 
 # Limites cgroups (autoritaires).
@@ -147,7 +147,7 @@ recreate "$NAME"
 
 # RESEAU tp_internal (--internal) au SUBNET FIGE ($NET_SUBNET). --internal =>
 # AUCUNE route Internet ; la seule sortie est la PASSERELLE FIGE ($NET_GW), ou le
-# device Incus `litellm` surface l'endpoint modele d'ixia. Si le reseau preexiste
+# device Incus `litellm` surface l'endpoint modele du backend. Si le reseau preexiste
 # avec un AUTRE subnet (ancien run auto), on le recree (le durci vient d'etre retire).
 ensure_pinned_network() {
   local cur
@@ -165,10 +165,10 @@ ensure_pinned_network() {
 }
 ensure_pinned_network
 
-# ANTHROPIC_BASE_URL : la PASSERELLE FIGE (device litellm -> ixia). Stable entre
+# ANTHROPIC_BASE_URL : la PASSERELLE FIGE (device litellm -> le backend). Stable entre
 # recreations. Surchargeable via LITELLM_ENDPOINT (debug).
 BASE_URL="${LITELLM_ENDPOINT:-http://${NET_GW}:${LITELLM_PORT}}"
-info "Endpoint modele (egress unique) : $BASE_URL  (passerelle tp_internal -> device litellm -> ixia)"
+info "Endpoint modele (egress unique) : $BASE_URL  (passerelle tp_internal -> device litellm -> le backend)"
 
 info "Lancement du profil DURCI ($NAME) — anneau 2, IP fixe $DURCI_IP, toutes mesures actives."
 
@@ -177,7 +177,7 @@ info "Lancement du profil DURCI ($NAME) — anneau 2, IP fixe $DURCI_IP, toutes 
 # IMPORTANT : --tmpfs declares AVANT les -v :ro de config (ordre de montage).
 # Le secret factice n'est VOLONTAIREMENT PAS monte (rien a exfiltrer).
 # Backend : ANTHROPIC_BASE_URL -> passerelle tp_internal ; ANTHROPIC_AUTH_TOKEN ->
-# VIRTUAL KEY LiteLLM scopee (la vraie cle Anthropic reste sur ixia). Pas de proxy.
+# VIRTUAL KEY LiteLLM scopee (la vraie cle Anthropic reste sur le backend externe). Pas de proxy.
 # -----------------------------------------------------------------------------
 docker run -d --name "$NAME" \
   --hostname "$NAME" \
@@ -223,8 +223,8 @@ ok "Conteneur $NAME demarre (non-root, --read-only, config :ro, cap-drop ALL, se
 # 2 bis) ACCES SSH (dropbear) — expose par un BRIDGE INCUS, pas dans ce step.
 # -----------------------------------------------------------------------------
 # L'agent durci est sur tp_internal (--internal) -> 'docker -p' n'y publie RIEN.
-# L'acces SSH se fait par un PROXY DEVICE INCUS pose cote HOTE (corrin) qui
-# forwarde corrin:<port> -> <ip-conteneur-durci>:2222 (dropbear). Il est cree par
+# L'acces SSH se fait par un PROXY DEVICE INCUS pose cote HOTE qui
+# forwarde le poste hote:<port> -> <ip-conteneur-durci>:2222 (dropbear). Il est cree par
 # scripts/ssh-bridge.sh (lance sur l'hote). Voir docs/07-installation.md.
 # =============================================================================
 info "Acces SSH : via proxy device Incus cote hote (scripts/ssh-bridge.sh) -> dropbear de $NAME:2222."
@@ -255,7 +255,7 @@ HEALTH_FILE="$WORKSPACE/_healthcheck_durci.txt"
 rm -f "$HEALTH_FILE" 2>/dev/null || true
 
 if [[ -n "${LITELLM_VIRTUAL_KEY:-}" ]]; then
-  info "Check fonctionnel via l'agent Claude Code (claude -p, backend LiteLLM via passerelle tp_internal -> ixia)..."
+  info "Check fonctionnel via l'agent Claude Code (claude -p, backend LiteLLM via passerelle tp_internal -> le backend)..."
   # L'agent ecrit via l'outil Write (ecriture directe Node). L'outil Bash est
   # inutilisable dans le durci : le seccomp bloque socketpair (spawn de shell) ->
   # c'est VOULU (pas de sous-process). On borne par timeout et on juge sur le
@@ -277,7 +277,7 @@ fi
 if [[ -f "$HEALTH_FILE" ]] && grep -q "$HEALTH_TOKEN" "$HEALTH_FILE" 2>/dev/null; then
   ok "Check fonctionnel DURCI REUSSI : l'agent reste pleinement fonctionnel (ecriture /workspace OK) malgre le durcissement."
 else
-  warn "Check fonctionnel DURCI : fichier attendu absent (cle LiteLLM absente/refusee, backend ixia injoignable via la passerelle ?). Le conteneur durci reste lance."
+  warn "Check fonctionnel DURCI : fichier attendu absent (cle LiteLLM absente/refusee, backend injoignable via la passerelle ?). Le conteneur durci reste lance."
 fi
 
 ok "Step 06 : profil DURCI lance, durcissement verifie, agent fonctionnel."
