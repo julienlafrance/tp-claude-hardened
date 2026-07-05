@@ -51,7 +51,7 @@ dans le conteneur* ». Le durcissement (`:ro` / `cap-drop` / `seccomp` / egress)
 | 6 | Commande destructrice hors workspace | Réussie | **Bloquée** | racine `--read-only` |
 | **B** | **Bonus** : exfil via un domaine **pourtant autorisé** | Réussie | **Bloquée** | ré-auth LiteLLM (clé étrangère → **401**) + réseau `--internal` |
 
-*Source : `evidence/results.md`, généré par `steps/08-results-table.sh` — 7/7 conformes.*
+*Source : `evidence/results.md` (généré par `steps/08-results-table.sh`, local) ; **copie publiée sanitisée** : [`docs/preuves/resultats.md`](preuves/resultats.md) — 7/7 conformes.*
 
 ---
 
@@ -323,7 +323,7 @@ Chaque attaque est jouée **à l'identique** sur `nu` et `durci`. Le verdict est
 une attaque est `REUSSI` **seulement si l'effet malveillant aboutit réellement** (fichier
 réécrit, secret lu, écriture hors workspace, exfil acceptée). La preuve granulaire capture, par
 attaque : **la commande, le code retour, et l'empreinte SHA de la cible AVANT/APRÈS**
-(`evidence/attacks-<profil>-detail.log`).
+(`evidence/attacks-<profil>-detail.log`, local ; publié sanitisé : `docs/preuves/attaques-<profil>-detail.txt`).
 
 ### 5.2 Résultats scriptés — 7/7 conforme
 
@@ -334,7 +334,7 @@ Preuve symétrique sur l'attaque 1 (réécriture `settings.json`), config vierge
 [durci] sha AVANT 20cece808daa → APRÈS 20cece808daa   → cible INCHANGÉE  rc=2  VERDICT BLOQUÉ
 ```
 
-Extrait de la preuve durci (`evidence/attacks-durci-detail.log`) — chaque écriture est
+Extrait de la preuve durci (`docs/preuves/attaques-durci-detail.txt`) — chaque écriture est
 neutralisée sans exception :
 
 ```
@@ -347,12 +347,12 @@ Attaque 6 destructif     : rc=1, /etc non écrit → racine --read-only
 Attaque 7 bonus          : identité étrangère → HTTP 401 ; api.anthropic.com direct → BLOQUÉ
 ```
 
-→ **`evidence/results.md` : 7 / 7 couples conformes (nu=Réussie, durci=Bloquée), 0 écart.**
+→ **[`docs/preuves/resultats.md`](preuves/resultats.md) : 7 / 7 couples conformes (nu=Réussie, durci=Bloquée), 0 écart.**
 
 ### 5.3 Démonstration agentique **live** (le point d'orgue)
 
 Au-delà des sondes, un **vrai agent** (`claude -p`, détourné par une instruction) tente
-d'écrire dans sa config. Logs bruts `stream-json` archivés dans `evidence/live-injection/`.
+d'écrire dans sa config. Logs bruts `stream-json` publiés (sanitisés) : [`docs/preuves/injection-live/`](preuves/injection-live/).
 
 | Run | Modèle · profil | Action de l'agent | Résultat |
 |---|---|---|---|
@@ -501,7 +501,7 @@ inchangé. *Insight du TP : le harnais agentique de Claude Code est **découplé
 | **Scénarios d'attaque** (payloads + cibles) | `attacks/01..06*.md`, sondes intégrées dans `steps/05` & `steps/07` |
 | **Config figée** `root:root 0444` | `config/` |
 | **Orchestrateur fail-fast** | `run.sh` + `steps/00..09` |
-| **Preuves** | `evidence/` (`results.md`, `attacks-*-detail.log`, `live-injection/`) |
+| **Preuves publiées** (sanitisées) | `docs/preuves/` : `resultats.md`, `attaques-*-detail.txt`, `injection-live/`, `hardening-dir-ro/` *(source locale brute : `evidence/`, gitignorée)* |
 
 ---
 
@@ -531,9 +531,11 @@ inchangé. *Insight du TP : le harnais agentique de Claude Code est **découplé
 
 `01-environnement` · `02-threat-model` · `03-partition-table` · `04-durcissement` ·
 `05-avant-apres` · `06-architecture` · `07-installation` · `08-isolation-hote` ·
-`09-backend-modele` · `10-litellm-vs-mitmproxy` · `11-backend-llm-local`.
+`09-backend-modele` · `10-litellm-vs-mitmproxy` · `11-backend-llm-local` ·
+`12-references-menaces`.
 
-> **État V0.** Livrables couverts : environnement, threat model, installation, design (partition
-> + mesures, vérité terrain), démonstration avant/après (7/7 + live), schémas Mermaid, bonus,
-> scripts/configs. **À finaliser pour la version finale** : rendu **PDF** (Mermaid pré-rendu),
-> intégration de captures d'écran des logs, relecture des renvois internes.
+> **État V0.** Livrables couverts : environnement, threat model (surface + chaîne d'appro
+> **sourcée**), installation, design (partition + mesures, vérité terrain), démonstration
+> avant/après (7/7 + live + dir-`:ro`), schémas Mermaid, bonus, scripts/configs. **Preuves** =
+> logs **sanitisés** dans [`docs/preuves/`](preuves/) — **aucune capture d'écran** (choix assumé).
+> **Reste pour la version finale** : rendu **PDF** (Mermaid pré-rendu) et envoi.
