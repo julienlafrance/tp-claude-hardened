@@ -217,8 +217,9 @@ docker pull zurban/tp-claude-hardened:latest \
 ```
 
 La **commande `docker run` durcie** complète (montages `:ro`, `--read-only`, `--cap-drop`,
-`--security-opt`, réseau, limites) est portée par `steps/06-run-durci.sh` ; ses invariants réels
-sont donnés §4.4 (extraits de `docker inspect`).
+`--security-opt`, réseau, limites) est portée par `steps/06-run-durci.sh` — **reproduite en
+Annexe A.1**, profil seccomp en **Annexe A.2**, Dockerfile en **Annexe A.3** ; ses invariants
+réels sont donnés §4.4 (extraits de `docker inspect`).
 
 ---
 
@@ -240,9 +241,9 @@ sont donnés §4.4 (extraits de `docker inspect`).
 | `/workspace/CLAUDE.md` | **ro** | bind `:ro` | empoisonnement de mémoire persistant |
 | `/workspace/CLAUDE.local.md` | **ro** | placeholder `:ro` | **dépôt** d'une mémoire locale empoisonnée |
 | `/workspace/.mcp.json` | **ro** | bind `:ro` | ajout de serveur MCP = octroi de capacité |
-| `/home/agent/.claude/settings.json`, `skills` | **ro** | bind `:ro` | réécriture config utilisateur |
-| `/home/agent/.claude/CLAUDE.md`, `settings.local.json`, `commands/`, `agents/` | **ro** | placeholders `:ro` | **dépôt** de config utilisateur neuve |
-| `/home/agent/.claude` (état : `sessions/`, `projects/`…) | **tmpfs** | `--tmpfs` | état runtime éphémère ; **pas de persistance** |
+| `~/.claude/settings.json`, `skills` | **ro** | bind `:ro` | réécriture config utilisateur |
+| `~/.claude/CLAUDE.md`, `settings.local.json`, `commands/`, `agents/` | **ro** | placeholders `:ro` | **dépôt** de config utilisateur neuve |
+| `~/.claude` (état : `sessions/`, `projects/`…) | **tmpfs** | `--tmpfs` | état runtime éphémère ; **pas de persistance** |
 | `/tmp` | **tmpfs** | `--tmpfs …,noexec` | scratch éphémère **non exécutable** (cf. §4.5) |
 | `/run` | **tmpfs** | `--tmpfs` | PID / sockets runtime éphémères |
 | `/run/secrets/fake_token.txt` | **ro** *(nu seulement)* | injecté au run | démo exfil : présent sur `nu`, **absent** sur `durci` |
@@ -324,6 +325,7 @@ une attaque est `REUSSI` **seulement si l'effet malveillant aboutit réellement*
 réécrit, secret lu, écriture hors workspace, exfil acceptée). La preuve granulaire capture, par
 attaque : **la commande, le code retour, et l'empreinte SHA de la cible AVANT/APRÈS**
 (`evidence/attacks-<profil>-detail.log`, local ; publié sanitisé : `docs/preuves/attaques-<profil>-detail.txt`).
+Ces preuves sont **reproduites en Annexe C**.
 
 ### 5.2 Résultats scriptés — 7/7 conforme
 
@@ -502,6 +504,9 @@ inchangé. *Insight du TP : le harnais agentique de Claude Code est **découplé
 | **Config figée** `root:root 0444` | `config/` |
 | **Orchestrateur fail-fast** | `run.sh` + `steps/00..09` |
 | **Preuves publiées** (sanitisées) | `docs/preuves/` : `resultats.md`, `attaques-*-detail.txt`, `injection-live/`, `hardening-dir-ro/` *(source locale brute : `evidence/`, gitignorée)* |
+
+> **Extraits numérotés** de ces scripts, configurations, scénarios et logs :
+> **Annexe A** (scripts & config), **Annexe B** (scénarios d'attaque), **Annexe C** (preuves).
 
 ---
 

@@ -1,0 +1,29 @@
+\begin{tikzpicture}[node distance=7mm]
+% ---- AVANT ----
+\node[dbox, text width=5.0cm] (nu)
+  {\textbf{USER root} · racine rw · caps défaut\\ seccomp défaut · aucune limite · \textbf{egress LIBRE}};
+\node[dbox, below=7mm of nu, text width=5.0cm] (ncfg)
+  {config bind \textbf{:rw} $\rightarrow$ réécriture OK\\ secret monté $\rightarrow$ \textbf{exfil OK}};
+\node[ebox, below=11mm of ncfg, text width=3.0cm] (net) {Internet / tiers};
+\draw[fl] (nu)--(ncfg);
+\draw[fl] (ncfg.south) -- node[right,font=\scriptsize]{egress libre} (net.north);
+\begin{scope}[on background layer]
+  \node[grpr, fit=(nu)(ncfg)(net), inner sep=10pt,
+        label={[font=\scriptsize\bfseries,text=red!45!black]above:AVANT — claude-nu (vulnérable)}](av){};
+\end{scope}
+% ---- APRÈS ----
+\node[gbox, right=24mm of nu, text width=5.6cm] (d)
+  {\textbf{USER 10001} · \texttt{-{}-read-only} · cap-drop ALL\\ no-new-privileges · seccomp restreint · 2g/256/2cpu};
+\node[gbox, below=7mm of d, text width=5.6cm] (dcfg)
+  {config bind \textbf{:ro} $\rightarrow$ écriture REFUSÉE (EROFS/EBUSY)\\ secret \textbf{non monté}};
+\node[ebox, below=11mm of dcfg, text width=4.4cm] (gw)
+  {passerelle $\rightarrow$ LiteLLM (ixia)\\ clé étrangère = \textbf{401}};
+\node[dbox, right=7mm of gw, text width=2.7cm] (x) {api.anthropic.com direct = \textbf{BLOQUÉ}};
+\draw[fl] (d)--(dcfg);
+\draw[fl] (dcfg.south) -- node[right,font=\scriptsize]{seule sortie} (gw.north);
+\draw[fld] (dcfg.east) to[out=0,in=90] (x.north);
+\begin{scope}[on background layer]
+  \node[grpg, fit=(d)(dcfg)(gw)(x), inner sep=10pt,
+        label={[font=\scriptsize\bfseries,text=green!40!black]above:APRÈS — claude-hardened (durci)}](ap){};
+\end{scope}
+\end{tikzpicture}

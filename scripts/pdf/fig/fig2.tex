@@ -1,0 +1,25 @@
+\begin{tikzpicture}[node distance=7mm]
+\node[hbox, text width=6.0cm] (conf)
+  {\textbf{CONFIG / ÉTAT} — actif protégé\\ settings.json (hooks) · CLAUDE.md · skills · .mcp.json};
+\node[ebox, right=12mm of conf, text width=5.0cm] (in)
+  {\textbf{Entrée} — prompt direct · donnée tierce (README, sortie d'outil, MCP) = injection \textbf{indirecte}};
+\node[ebox, below=17mm of conf.south west, anchor=north west] (P){percevoir};
+\node[ebox, right=6mm of P](R){raisonner};
+\node[ebox, right=6mm of R](A){agir (outils)};
+\node[ebox, right=6mm of A](O){observer};
+\draw[fl](P)--(R);\draw[fl](R)--(A);\draw[fl](A)--(O);
+\draw[fl](O) to[out=-75,in=-105] (P);
+\begin{scope}[on background layer]
+  \node[grp, fit=(P)(R)(A)(O), inner sep=8pt, label={[lbl]above:Boucle agentique}](loop){};
+\end{scope}
+\node[ebox, below=16mm of P, text width=2.6cm](t1){FS read/write};
+\node[ebox, right=8mm of t1, text width=1.7cm](t2){shell};
+\node[ebox, right=8mm of t2, text width=3.4cm](t3){réseau / MCP (egress)};
+\draw[fl] (conf.south) to[out=-90,in=95] node[left,font=\scriptsize]{lue \& exécutée} (loop.north);
+\draw[fl] (in.south) to[out=-90,in=85] (loop.north east);
+\draw[fl] (A) -- (t1.north);
+\draw[fl] (A) -- (t2.north);
+\draw[fl] (A) -- (t3.north);
+\draw[fld] (t1.west) to[out=180,in=180]
+  node[left,font=\scriptsize,align=center]{FS-write réécrit\\la config $\Rightarrow$\\auto-modif durable} (conf.west);
+\end{tikzpicture}
