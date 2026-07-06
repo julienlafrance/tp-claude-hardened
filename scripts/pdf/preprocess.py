@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-# Prépare docs/RAPPORT-V0.md pour pandoc/lualatex :
-#  - retire le front-matter YAML de tête
-#  - injecte un bloc titre + encadré lavande (charte)
-#  - remplace chaque bloc ```mermaid``` par un include TikZ (fig{N}.tex) s'il existe,
-#    sinon par un placeholder ; sauvegarde les sources mermaid.
+# Prépare docs/RAPPORT.md pour pandoc/lualatex (charte Télécom Paris) :
+#  - retire un éventuel front-matter YAML de tête ;
+#  - injecte la PAGE DE TITRE (logos + école + titre + auteurs) puis la table des matières ;
+#  - remplace chaque bloc ```mermaid``` par un include TikZ (fig{N}.tex) s'il existe ;
+#  - concatène les annexes (arg 4).
+#
+# Identité de la page de titre — MODIFIER ICI si besoin :
+#   auteur, encadrant, programme, année, sujet.
 import re, sys, pathlib
 
-SRC = pathlib.Path(sys.argv[1])          # docs/RAPPORT-V0.md
+SRC = pathlib.Path(sys.argv[1])          # docs/RAPPORT.md
 OUT = pathlib.Path(sys.argv[2])          # build/RAPPORT.md
 FIGDIR = pathlib.Path(sys.argv[3])       # dossier des fig{N}.tex (TikZ)
 
@@ -18,33 +21,54 @@ if text.startswith("---"):
     if m:
         text = text[m.end():]
 
-# 2) retire le premier blockquote "> **Dépôt du projet ...**" (repris dans le titre)
-text = re.sub(r"\A\s*(?:>[^\n]*\n)+\s*", "", text)
-# retire aussi un "---" isolé résiduel en tout début
-text = re.sub(r"\A\s*---\s*\n", "", text)
-
-# 3) bloc titre + encadré (charte) injecté en tête
+# 2) PAGE DE TITRE (charte Télécom Paris / IMT) + table des matières
 TITLE = r"""```{=latex}
-\thispagestyle{fancy}
-\begin{center}
-{\LARGE\bfseries\color{accent} Durcissement d'un agent de codage\\[2pt]
-(Claude Code) en conteneur Docker}\\[7pt]
-{\large\itshape TP cybersécurité — rapport · Julien · 2025–2026}
-\end{center}
-\vspace{1pt}
-\begin{calloutbox}
-\centering{\bfseries\color{accent2}Dépôt du projet — code · configurations · preuves}\\[3pt]
-\small GitHub\quad\url{https://github.com/julienlafrance/tp-claude-hardened}\\[1pt]
-\small Image Docker\quad\texttt{zurban/tp-claude-hardened:latest}
-\end{calloutbox}
-\vspace{4pt}
-{\small\tableofcontents}
+\begin{titlepage}
+\centering
+\vspace*{0.3cm}
+\noindent
+\begin{minipage}[c]{0.55\textwidth}\raggedright\includegraphics[height=2.0cm]{telecom-paris.png}\end{minipage}%
+\hfill
+\begin{minipage}[c]{0.40\textwidth}\raggedleft\includegraphics[height=1.55cm]{imt.png}\end{minipage}
+
+\vspace{1.8cm}
+{\scshape\large École nationale supérieure des télécommunications\par}
+\vspace{0.5cm}
+{\scshape Cybersécurité --- sécurité des agents de codage autonomes\par}
+\vspace{1.0cm}
+\noindent\rule{\textwidth}{0.6pt}\\[0.55cm]
+{\huge\bfseries Durcissement d'un agent de codage\\[5pt](Claude Code) en conteneur Docker\par}
+\vspace{0.55cm}
+\noindent\rule{\textwidth}{0.6pt}
+
+\vspace{1.7cm}
+\begin{flushleft}
+{\itshape Réalisé par :}\\[6pt]
+\hspace{1.2em}Julien \textsc{Lafrance}
+\end{flushleft}
+\vspace{0.7cm}
+\begin{flushright}
+{\itshape Dirigé par :}\\[6pt]
+M. Julien \textsc{Dréano}\hspace{0.4em}
+\end{flushright}
+
+\vfill
+{\bfseries MS IA Expert Data \& MLOps\par}
+\vspace{0.3cm}
+{Année universitaire 2025--2026\par}
+\vspace{0.7cm}
+\end{titlepage}
+
+\clearpage
+\microtypesetup{protrusion=false}
+\tableofcontents
+\microtypesetup{protrusion=true}
 \clearpage
 ```
 
 """
 
-# 4) mermaid -> TikZ include (ou placeholder)
+# 3) mermaid -> TikZ include (ou placeholder)
 counter = {"n": 0}
 FIGDIR.mkdir(parents=True, exist_ok=True)
 def repl_mermaid(m):
@@ -54,13 +78,13 @@ def repl_mermaid(m):
     if tikz.exists():
         return ("```{=latex}\n\\begin{center}\\begin{adjustbox}{max width=\\linewidth}\n"
                 "\\input{%s}\n\\end{adjustbox}\\end{center}\n```" % tikz.as_posix())
-    # figure TikZ absente : on sauvegarde la source mermaid (pour l'auteur) + placeholder
     (FIGDIR / f"mermaid{n}.txt").write_text(m.group(1), encoding="utf-8")
     return ("```{=latex}\n\\begin{calloutbox}\\centering\\itshape "
             "[schéma %d — rendu TikZ en cours]\\end{calloutbox}\n```" % n)
 
 text = re.sub(r"```mermaid\n(.*?)```", repl_mermaid, text, flags=re.DOTALL)
 
+# 4) annexes (arg 4)
 ANNEX = ""
 if len(sys.argv) > 4:
     ap = pathlib.Path(sys.argv[4])

@@ -1,35 +1,41 @@
 % =============================================================================
-% preamble.tex — charte graphique du rapport (inspirée du Datachallenge_rapport)
+% preamble.tex — charte graphique « Télécom Paris / IMT » (rapport académique sobre)
 % Moteur : lualatex (fontspec). Inclus via pandoc --include-in-header.
+% Style : noir, serif Latin Modern, une colonne, sections numérotées, en-tête/pied
+% à filets, encadrés arrondis à bord fin, tables booktabs. Aucun aplat de couleur.
 % =============================================================================
 
-% ---- Couleurs de la charte ---------------------------------------------------
+% ---- Couleurs (sobres : essentiellement du gris/noir) -----------------------
 \usepackage{xcolor}
-\definecolor{accent}{RGB}{38,63,140}     % indigo/bleu — titre + sections
-\definecolor{accent2}{RGB}{95,80,160}    % violet — labels d'encadré
-\definecolor{boxbg}{RGB}{238,238,248}    % lavande clair — fond d'encadré
-\definecolor{boxframe}{RGB}{198,198,224}
-\definecolor{shadecolor}{RGB}{245,246,248} % fond des blocs de code
-\definecolor{rulecol}{RGB}{198,198,224}
+\definecolor{tpink}{RGB}{190,20,60}       % rouge Télécom (accents ultra-ponctuels)
+\definecolor{boxframe}{RGB}{40,55,95}     % bord des encadrés (bleu nuit sobre)
+\definecolor{rulecol}{RGB}{60,60,60}      % filets d'en-tête / pied
+\definecolor{shadecolor}{RGB}{245,245,245}% fond des blocs de code (gris très clair)
+\definecolor{codeframe}{RGB}{210,210,210}
+\definecolor{linknavy}{RGB}{25,45,95}     % liens (bleu nuit discret)
+\definecolor{g1}{RGB}{245,245,245}        % gris figures — fond neutre
+\definecolor{g2}{RGB}{232,232,232}        % gris figures — accent léger
+\definecolor{okgreen}{RGB}{20,110,60}     % vert sobre (durci/OK)
+\definecolor{kored}{RGB}{150,35,35}       % rouge sobre (vulnérable/KO)
 
-% ---- Polices (lualatex + fontspec) ------------------------------------------
-\usepackage{fontspec}   % défaut = Latin Modern (comme la charte de référence)
-\setmonofont{DejaVu Sans Mono}[Scale=0.82]  % couvre → ─ │ ✓ des logs/code
+% ---- Polices (lualatex + fontspec) : défaut = Latin Modern (comme la réf.) ---
+\usepackage{fontspec}
+\setmonofont{DejaVu Sans Mono}[Scale=0.84]  % couvre → ─ │ ✓ ✗ des logs/annexes
 \usepackage{microtype}
 
-% ---- Symboles Unicode (emoji/flèches) hors verbatim -------------------------
+% ---- Symboles Unicode (flèches, glyphes de logs) hors verbatim --------------
 \usepackage{pifont}
 \usepackage{newunicodechar}
-\newunicodechar{✅}{{\color{green!55!black}\ding{51}}}
-\newunicodechar{❌}{{\color{red!72!black}\ding{55}}}
-\newunicodechar{🛑}{{\color{red!72!black}\ding{54}}}
-\newunicodechar{✓}{{\color{green!55!black}\ding{51}}}
-\newunicodechar{✗}{{\color{red!72!black}\ding{55}}}
+\newunicodechar{✅}{{\color{okgreen}\ding{51}}}
+\newunicodechar{❌}{{\color{kored}\ding{55}}}
+\newunicodechar{🛑}{{\color{kored}\ding{54}}}
+\newunicodechar{✓}{{\color{okgreen}\ding{51}}}
+\newunicodechar{✗}{{\color{kored}\ding{55}}}
 \newunicodechar{→}{\ensuremath{\rightarrow}}
 \newunicodechar{←}{\ensuremath{\leftarrow}}
 \newunicodechar{↑}{\ensuremath{\uparrow}}
-\newunicodechar{🎯}{{\color{accent}\ding{110}}}
-\newunicodechar{⚠}{{\color{orange!80!black}\ding{224}}}
+\newunicodechar{🎯}{{\ding{110}}}
+\newunicodechar{⚠}{{\ding{224}}}
 \newunicodechar{≈}{\ensuremath{\approx}}
 \newunicodechar{≥}{\ensuremath{\geq}}
 \newunicodechar{≤}{\ensuremath{\leq}}
@@ -38,78 +44,89 @@
 \newunicodechar{«}{\guillemotleft}
 \newunicodechar{»}{\guillemotright}
 
-% ---- Titres de section : bleus, sans numéro LaTeX (numéros manuels conservés)
+% ---- Sections NUMÉROTÉES, noires (charte académique) -------------------------
 \usepackage{titlesec}
-\setcounter{secnumdepth}{-1}   % on garde les numéros MANUELS dans le texte
-\titleformat{\section}{\normalfont\Large\bfseries\color{accent}}{}{0em}{}
-\titleformat{\subsection}{\normalfont\large\bfseries\color{accent}}{}{0em}{}
-\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{accent!85!black}}{}{0em}{}
-\titlespacing*{\section}{0pt}{14pt}{6pt}
-\titlespacing*{\subsection}{0pt}{10pt}{4pt}
-\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}   % numérote \section et \subsection ; pas au-delà
+\setcounter{tocdepth}{2}      % TOC = sections + sous-sections
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.6em}{}
+% \subsubsection = mini-titre gras EN LIGNE, non numéroté (comme la réf.)
+\titleformat{\subsubsection}[runin]{\normalfont\normalsize\bfseries}{}{0em}{}[\ :]
+\titlespacing*{\section}{0pt}{16pt}{7pt}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{7pt}{0.6em}
 
-% ---- En-tête / pied de page (institution · page · projet) -------------------
+% ---- En-tête / pied à filets (sujet · Télécom Paris · page · programme) ------
 \usepackage{fancyhdr}
 \usepackage{lastpage}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyfoot[L]{\footnotesize\color{accent}TP Cybersécurité — Julien}
-\fancyfoot[C]{\footnotesize\thepage\,/\,\pageref{LastPage}}
-\fancyfoot[R]{\footnotesize\color{accent}Durcissement Claude Code · Docker}
-\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\scshape Durcissement d'un agent de codage --- Docker}
+\fancyfoot[L]{\footnotesize Télécom Paris}
+\fancyfoot[C]{\footnotesize\thepage}
+\fancyfoot[R]{\footnotesize MS IA Expert Data \& MLOps}
+\renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{rulecol}\leaders\hrule height \headrulewidth\hfill}}
 \renewcommand{\footrule}{\hbox to\headwidth{\color{rulecol}\leaders\hrule height \footrulewidth\hfill}}
 
-% ---- Encadrés lavande (mappe les blockquotes markdown) ----------------------
+% ---- Encadrés arrondis à bord fin (mappe les blockquotes markdown) ----------
 \usepackage[framemethod=default]{mdframed}
 \newmdenv[
-  backgroundcolor=boxbg, linecolor=boxframe, linewidth=0.6pt,
-  skipabove=7pt, skipbelow=7pt, leftmargin=0pt, rightmargin=0pt,
-  innerleftmargin=9pt, innerrightmargin=9pt, innertopmargin=6pt,
-  innerbottommargin=6pt, roundcorner=2pt
+  backgroundcolor=white, linecolor=boxframe, linewidth=0.7pt,
+  skipabove=8pt, skipbelow=8pt, leftmargin=0pt, rightmargin=0pt,
+  innerleftmargin=10pt, innerrightmargin=10pt, innertopmargin=7pt,
+  innerbottommargin=7pt, roundcorner=4pt
 ]{calloutbox}
 \let\oldquote\quote \let\endoldquote\endquote
 \renewenvironment{quote}{\begin{calloutbox}\small}{\end{calloutbox}}
 
-% ---- Tables : booktabs + réduction pour tables larges -----------------------
+% ---- Tables : booktabs, sobres ----------------------------------------------
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
 \usepackage{etoolbox}
 \setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.18}
 \AtBeginEnvironment{longtable}{\footnotesize}
 \AtBeginEnvironment{tabular}{\small}
 
-% ---- Code : fvextra (retour à la ligne) + fond léger ------------------------
+% ---- Code : fond gris très clair + fin cadre, retour à la ligne -------------
 \usepackage{fvextra}
 \fvset{breaklines=true, breakanywhere=true, fontsize=\small, commandchars=\\\{\}}
+% encadre les blocs de code (Shaded) d'un filet gris discret
+\usepackage[framemethod=default]{mdframed}
+\BeforeBeginEnvironment{Shaded}{\begin{mdframed}[backgroundcolor=shadecolor,linecolor=codeframe,%
+  linewidth=0.5pt,innerleftmargin=7pt,innerrightmargin=7pt,innertopmargin=5pt,%
+  innerbottommargin=5pt,skipabove=7pt,skipbelow=7pt,roundcorner=2pt]}
+\AfterEndEnvironment{Shaded}{\end{mdframed}}
 
-% ---- Liens : couleurs passées via pandoc -V (colorlinks/linkcolor/urlcolor)
-%      -> appliquées dans le \hypersetup du template, où 'accent' est déjà défini.
+% ---- Liens discrets (bleu nuit) — appliqués via pandoc -V colorlinks --------
+% (linkcolor/urlcolor/citecolor passés en ligne de commande = linknavy)
 
-% ---- Espacements généraux ---------------------------------------------------
-\usepackage{parskip}       % paragraphes séparés par un blanc (pas d'indentation)
+% ---- Paragraphes : indentation classique (comme la réf.) --------------------
+%   -> on NE charge PAS parskip : alinéa en début de paragraphe.
 \usepackage{enumitem}
-\setlist{itemsep=1pt, topsep=3pt, parsep=0pt}
+\setlist{itemsep=1.5pt, topsep=3pt, parsep=0pt}
 \usepackage{graphicx}
-\usepackage{adjustbox}   % réduit une figure trop large à \linewidth
+\usepackage{adjustbox}
 \usepackage{tikz}
 \usetikzlibrary{positioning, arrows.meta, fit, backgrounds, shapes.geometric, calc}
-% ---- Styles TikZ (charte) ---------------------------------------------------
+
+% ---- Styles TikZ (SOBRES : niveaux de gris + 1 accent vert/rouge) -----------
 \tikzset{
-  ebox/.style={draw=boxframe, fill=boxbg, rounded corners=2pt, align=center,
+  ebox/.style={draw=codeframe, fill=g1, rounded corners=2pt, align=center,
                font=\footnotesize, inner sep=5pt, line width=0.5pt},
-  hbox/.style={draw=accent, fill=accent!8, rounded corners=2pt, align=center,
+  hbox/.style={draw=black!55, fill=g2, rounded corners=2pt, align=center,
                font=\footnotesize, inner sep=5pt, line width=0.8pt},
-  dbox/.style={draw=red!55!black, fill=red!5, rounded corners=2pt, align=center,
+  dbox/.style={draw=kored, fill=kored!5, rounded corners=2pt, align=center,
                font=\footnotesize, inner sep=5pt, line width=0.6pt},
-  gbox/.style={draw=green!45!black, fill=green!7, rounded corners=2pt, align=center,
+  gbox/.style={draw=okgreen, fill=okgreen!6, rounded corners=2pt, align=center,
                font=\footnotesize, inner sep=5pt, line width=0.6pt},
-  grp/.style={draw=accent!65, rounded corners=3pt, dashed, line width=0.6pt},
-  grpr/.style={draw=red!45!black, rounded corners=3pt, line width=0.7pt},
-  grpg/.style={draw=green!40!black, rounded corners=3pt, line width=0.7pt},
+  grp/.style={draw=black!45, rounded corners=3pt, dashed, line width=0.6pt},
+  grpr/.style={draw=kored!70, rounded corners=3pt, line width=0.7pt},
+  grpg/.style={draw=okgreen!70, rounded corners=3pt, line width=0.7pt},
   fl/.style={-{Stealth[length=5pt]}, line width=0.6pt, font=\scriptsize},
   fld/.style={-{Stealth[length=5pt]}, line width=0.6pt, dashed, font=\scriptsize},
-  lbl/.style={font=\scriptsize\bfseries, text=accent},
+  lbl/.style={font=\scriptsize\bfseries},
 }

@@ -25,17 +25,18 @@ for t in pandoc lualatex python3; do
 done
 mkdir -p "$BUILD"
 
-echo "[build-pdf] 1/3 préprocessing (titre+charte, mermaid->TikZ, annexes)"
+echo "[build-pdf] 1/3 préprocessing (page de titre Télécom, mermaid->TikZ, annexes)"
+cp "$PDFSRC"/logos/*.png "$BUILD"/ 2>/dev/null || true
 python3 "$PDFSRC/preprocess.py" \
-  "$ROOT/docs/RAPPORT-V0.md" "$BUILD/RAPPORT.md" "$PDFSRC/fig" "$ROOT/docs/annexes.md"
+  "$ROOT/docs/RAPPORT.md" "$BUILD/RAPPORT.md" "$PDFSRC/fig" "$ROOT/docs/annexes.md"
 
 echo "[build-pdf] 2/3 pandoc markdown -> latex"
 pandoc "$BUILD/RAPPORT.md" \
   -f markdown+raw_tex+tex_math_dollars+pipe_tables --standalone \
-  --include-in-header="$PDFSRC/preamble.tex" --highlight-style=tango \
-  -V documentclass=article -V papersize=a4 -V geometry:margin=2.1cm \
-  -V fontsize=10pt -V lang=fr \
-  -V colorlinks=true -V linkcolor=accent -V urlcolor=accent2 -V toccolor=accent \
+  --include-in-header="$PDFSRC/preamble.tex" --highlight-style=monochrome \
+  -V documentclass=article -V papersize=a4 -V geometry:margin=2.3cm \
+  -V fontsize=11pt -V lang=fr \
+  -V colorlinks=true -V linkcolor=black -V urlcolor=linknavy -V citecolor=black -V toccolor=black \
   -o "$BUILD/RAPPORT.tex"
 
 echo "[build-pdf] 3/3 lualatex x3 (TOC + pieds de page)"
