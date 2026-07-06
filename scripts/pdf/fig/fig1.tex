@@ -1,15 +1,24 @@
 \begin{tikzpicture}[node distance=8mm]
-\node[hbox, text width=0.74\linewidth] (host)
-  {\textbf{Machine hôte réelle} — Linux 6.8 · Incus 7.1 · Docker 29.5.2};
-\node[hbox, below=18mm of host, xshift=-2.3cm, text width=4.5cm] (durci)
+\node[hbox, text width=0.80\linewidth] (host)
+  {\textbf{Serveur physique} (hôte réel) — héberge machines virtuelles \& quasi-VM (Incus) · Linux 6.8};
+
+% --- Anneau 2 (moteur Docker imbriqué) : les deux profils de conteneur ---
+\node[hbox, below=24mm of host, xshift=-2.3cm, text width=4.5cm] (durci)
   {\textbf{claude-hardened} — DURCI \textit{(pièce notée)}\\ config :ro · racine ro · non-root · cap-drop ALL};
 \node[ebox, right=8mm of durci, text width=3.1cm] (nu)
   {\textbf{claude-nu}\\ non durci — démo avant/après};
 \begin{scope}[on background layer]
-  \node[grp, fit=(durci)(nu), inner sep=9pt,
-        label={[lbl]above:Anneau 1 — Incus LXC « tp-claude-host » (nesting) · Docker imbriqué}] (ring1) {};
+  \node[grp, fit=(durci)(nu), inner sep=8pt,
+        label={[lbl]above:Anneau 2 — moteur Docker 29.5.2 (imbriqué)}] (ring2) {};
 \end{scope}
-\node[ebox, below=15mm of ring1, text width=5.4cm] (gw)
+
+% --- Anneau 1 (instance Incus) : enveloppe l'anneau 2 ---
+\begin{scope}[on background layer]
+  \node[grp, fit=(ring2), inner sep=20pt,
+        label={[lbl]above:Anneau 1 — instance Incus « tp-claude-host » (security.nesting=true)}] (ring1) {};
+\end{scope}
+
+\node[ebox, below=16mm of ring1, text width=5.4cm] (gw)
   {Passerelle Incus (device) $\rightarrow$ \texttt{ixia:3101}};
 \node[hbox, below=8mm of gw, text width=6.8cm] (ixia)
   {\textbf{ixia} — passerelle \textbf{LiteLLM} (externe)\\ journalise chaque requête · route vers l'une des 2 sorties :};
@@ -21,7 +30,7 @@
 \begin{scope}[on background layer]
   \node[grp, fit=(anthropic), inner sep=6pt, label={[lbl]below:Internet}] (net) {};
 \end{scope}
-\draw[fl] (host) -- (ring1.north);
+\draw[fl] (host.south) to[out=-90,in=120] (ring1.north west);
 \draw[fl] (durci.south) to[out=-90,in=155]
   node[pos=0.55,left,font=\scriptsize]{virtual key scopée} (gw.north west);
 \draw[fl] (gw) -- (ixia);

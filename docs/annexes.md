@@ -7,8 +7,8 @@
 
 > Extraits **verbatim** du dépôt (chemin indiqué à chaque bloc). Numérotation : **A** — scripts &
 > configuration du durcissement · **B** — scénarios d'attaque · **C** — preuves d'exécution
-> (logs sanitisés, `docs/preuves/`). L'adresse réelle du backend est masquée (`backend-host`), les
-> secrets sont **factices**.
+> (logs sanitisés, `docs/preuves/`). L'adresse IP réelle du backend est masquée (le dépôt public
+> utilise l'alias `backend-host`), les secrets sont **factices**.
 
 # Scripts & configuration du durcissement
 

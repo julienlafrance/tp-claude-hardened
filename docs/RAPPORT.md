@@ -54,7 +54,8 @@ sur GitHub ; l'image Docker de l'agent est, elle, disponible sur Docker Hub :
 ## Architecture à deux anneaux
 
 Le TP empile deux frontières d'isolation indépendantes ; un agent compromis doit les franchir toutes
-les deux avant d'atteindre la machine hôte réelle — le poste de travail physique qui héberge le tout.
+les deux avant d'atteindre la machine hôte réelle — le serveur physique qui héberge les machines
+virtuelles et quasi-VM (LXD/Incus), et à travers elles l'ensemble du dispositif.
 
 ```mermaid
 graph TD
@@ -86,7 +87,7 @@ passés au runtime : ce sont donc eux, et eux seuls, que la démonstration met �
 ## Backend modèle : aucun secret dans la sandbox
 
 Claude Code ne s'adresse pas directement à un fournisseur de modèle, mais à une passerelle LiteLLM
-externe (`backend-host:3101`, compatible Anthropic). C'est LiteLLM qui choisit le modèle en amont, et
+externe (`ixia:3101`, compatible Anthropic). C'est LiteLLM qui choisit le modèle en amont, et
 le montage supporte deux routes, toutes deux mises en œuvre et testées (figure 1) :
 
 - **interne** — un modèle auto-hébergé par Ollama sur GPU (ici `qwen3:8b`) ; aucune donnée ne quitte
@@ -305,7 +306,7 @@ figurent en annexe A.1.
 ## Prérequis
 
 Un hôte Linux (cgroup v2) avec Incus (anneau 1) et Docker 29.5.2 (anneau 2, dans l'instance) ; le
-backend LiteLLM/Ollama joignable (`backend-host:3101`) ; la clé virtuelle scopée et le nom du modèle
+backend LiteLLM/Ollama joignable (`ixia:3101`) ; la clé virtuelle scopée et le nom du modèle
 dans un `.env` non versionné.
 
 ## Chaîne *fail-fast*
