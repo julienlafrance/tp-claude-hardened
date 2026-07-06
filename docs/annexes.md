@@ -56,7 +56,7 @@ docker run -d --name claude-hardened \
 `defaultAction = ERRNO` (deny-by-default) + allowlist des syscalls de Node/bash/git/jq/claude,
 **hors** appels dangereux. Deux finesses ferment l'évasion par *user-namespace* :
 
-```json
+```text
 {
   "defaultAction": "SCMP_ACT_ERRNO",          // tout syscall non listé -> EPERM
   "syscalls": [

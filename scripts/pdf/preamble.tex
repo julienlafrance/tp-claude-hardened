@@ -50,11 +50,11 @@
 \setcounter{tocdepth}{2}      % TOC = sections + sous-sections
 \titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{0.7em}{}
 \titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.6em}{}
-% \subsubsection = mini-titre gras EN LIGNE, non numéroté (comme la réf.)
-\titleformat{\subsubsection}[runin]{\normalfont\normalsize\bfseries}{}{0em}{}[\ :]
+% \subsubsection = mini-titre gras sur sa propre ligne, non numéroté (comme la réf.)
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries}{}{0em}{}
 \titlespacing*{\section}{0pt}{16pt}{7pt}
 \titlespacing*{\subsection}{0pt}{11pt}{4pt}
-\titlespacing*{\subsubsection}{0pt}{7pt}{0.6em}
+\titlespacing*{\subsubsection}{0pt}{9pt}{3pt}
 
 % ---- En-tête / pied à filets (sujet · Télécom Paris · page · programme) ------
 \usepackage{fancyhdr}
