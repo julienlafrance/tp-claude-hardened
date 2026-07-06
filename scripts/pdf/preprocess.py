@@ -34,7 +34,7 @@ TITLE = r"""```{=latex}
 \vspace{1.8cm}
 {\scshape\large École nationale supérieure des télécommunications\par}
 \vspace{0.5cm}
-{\scshape Cybersécurité --- sécurité des agents de codage autonomes\par}
+{\scshape DATA707 --- Cyber dans la Big Data + IA\par}
 \vspace{1.0cm}
 \noindent\rule{\textwidth}{0.6pt}\\[0.55cm]
 {\huge\bfseries Durcissement d'un agent de codage\\[5pt](Claude Code) en conteneur Docker\par}
@@ -49,7 +49,8 @@ TITLE = r"""```{=latex}
 \vspace{0.7cm}
 \begin{flushright}
 {\itshape Dirigé par :}\\[6pt]
-M. Julien \textsc{Dréano}\hspace{0.4em}
+M. Julien \textsc{Dréano}\\[2pt]
+{\small\itshape RSSI Groupe Framatome}\hspace{0.4em}
 \end{flushright}
 
 \vfill
