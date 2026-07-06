@@ -43,8 +43,8 @@ configuration et logs de preuve figurent en annexes A, B et C.
 
 ## Architecture à deux anneaux
 
-Le TP empile deux frontières d'isolation indépendantes ; un agent compromis doit franchir les deux
-pour atteindre la machine de l'étudiant.
+Le TP empile deux frontières d'isolation indépendantes ; un agent compromis doit les franchir toutes
+les deux avant d'atteindre la machine hôte réelle — le poste de travail physique qui héberge le tout.
 
 ```mermaid
 graph TD
@@ -69,21 +69,40 @@ surface d'appel au noyau partagé devant rester minimale.
 L'agent est Claude Code v2.1.191 (paquet npm `@anthropic-ai/claude-code`, version épinglée). Une
 image unique, `claude-hardened:latest`, sert aux deux profils ; l'utilisateur applicatif y est
 `agent` (UID/GID 10001), jamais root, avec `/workspace` pour espace de travail, et aucun secret
-n'est inscrit dans ses couches. Seule l'invocation `docker run` distingue `nu` de `durci` : à image
-identique, on isole ainsi la question « quels drapeaux runtime protègent la configuration ? ».
+n'est inscrit dans ses couches. Seule l'invocation `docker run` distingue `nu` de `durci`. Comme
+l'image est identique, la seule chose qui change d'un profil à l'autre est l'ensemble des drapeaux
+passés au runtime : ce sont donc eux, et eux seuls, que la démonstration met à l'épreuve.
 
 ## Backend modèle : aucun secret dans la sandbox
 
-Claude Code ne parle pas à Anthropic. Son backend est un service externe compatible Anthropic,
-servi par LiteLLM (`backend-host:3101`), qui relaie vers Ollama et un modèle local — ici `qwen3:8b`.
-La sandbox ne détient donc aucune clé Anthropic ni token OAuth : l'authentification passe par une
-clé virtuelle LiteLLM scopée (`ANTHROPIC_AUTH_TOKEN`, injectée au run depuis un `.env` non
-versionné), tandis que `ANTHROPIC_API_KEY` reste vide.
+Claude Code ne s'adresse pas directement à un fournisseur de modèle, mais à une passerelle LiteLLM
+externe (`backend-host:3101`, compatible Anthropic). C'est LiteLLM qui choisit le modèle en amont, et
+le montage supporte deux routes, toutes deux mises en œuvre et testées (figure 1) :
 
-Il en découle que les requêtes ne quittent pas le périmètre et que la seule destination d'egress est
-ce backend. Les verrous du durcissement (`:ro`, `cap-drop`, seccomp, egress) sont d'ailleurs
-indépendants du moteur de modèle : en changer n'en modifie aucun ; cela réduit seulement le secret à
-protéger.
+- **interne** — un modèle auto-hébergé par Ollama sur GPU (ici `qwen3:8b`) ; aucune donnée ne quitte
+  le périmètre ;
+- **externe** — un modèle Anthropic standard, atteint par LiteLLM via une clé API sur
+  `api.anthropic.com`.
+
+Dans les deux cas, la sandbox ne détient aucune clé Anthropic ni token OAuth : elle s'authentifie
+auprès de LiteLLM par une clé virtuelle scopée (`ANTHROPIC_AUTH_TOKEN`, injectée au run depuis un
+`.env` non versionné), `ANTHROPIC_API_KEY` restant vide. Le secret réel — la clé API Anthropic, le
+cas échéant — demeure sur LiteLLM, jamais dans le conteneur. La seule destination d'egress du
+conteneur reste donc LiteLLM, quel que soit le modèle servi, et les verrous du durcissement (`:ro`,
+`cap-drop`, seccomp, egress) sont indépendants du moteur choisi.
+
+## Accès à l'agent : SSH, sans savoir qu'on est en sandbox
+
+L'utilisateur ne lance pas l'agent depuis l'hôte : il ouvre une session SSH vers un serveur
+`dropbear` embarqué dans le conteneur (port 2222) et se retrouve directement dans l'environnement de
+Claude Code. Sa clé publique est injectée à la création du conteneur (`authorized_keys` monté `:ro`),
+et `dropbear` tourne sans authentification par mot de passe (`-s`) ni redirection de ports
+(`-j -k`) : l'accès est donc par clé uniquement, sans tunnel possible.
+
+Ce point d'entrée a une vertu défensive. Ni l'utilisateur, ni un attaquant qui prendrait la main sur
+la session, ne perçoivent qu'ils opèrent dans un conteneur Docker, lui-même imbriqué dans une
+instance Incus. Cette ignorance de la structure réelle réduit la reconnaissance et complique toute
+tentative d'évasion, qui suppose de savoir ce que l'on cherche à franchir.
 
 # Modèle de menace
 
@@ -332,10 +351,13 @@ Au-delà des sondes, un vrai `claude -p` est détourné pour tenter d'écrire sa
 
 Ces exécutions (annexe C.4) confirment sur des agents réels ce que mesurent les sondes.
 
-## Niveau répertoire : avant / après
+## Niveau répertoire : la preuve que l'architecture prime sur le modèle
 
-La fermeture du dépôt de fichier neuf (§4.3) est mesurée à part, car elle établit que le contrôle est
-déterministe et ne dépend pas du jugement du modèle :
+Cette dernière mesure valide la thèse du rapport (§3.4). Elle isole le trou non évident — le dépôt
+d'un fichier de configuration neuf (§3.2) — et compare les deux durcissements possibles : `:ro`
+fichier par fichier (l'approche naïve) contre `:ro` au niveau du répertoire (la nôtre). Elle est
+jouée avec `qwen3:8b`, le modèle qui *obéit* au poison, précisément pour montrer que la protection
+ne doit rien à son jugement :
 
 | | `:ro` fichier par fichier | `:ro` niveau répertoire |
 |:-------------------------------------------|:--------------------------|:--------------------------|
@@ -344,17 +366,20 @@ déterministe et ne dépend pas du jugement du modèle :
 | `qwen3:8b` après dépôt | « Bonjour ! `<<POISON-OK>>` » | « Bonjour ! » (sain) |
 | Agent fonctionnel / 7-7 préservé | — | oui / oui |
 
-Preuves : annexe C.3.
+Le fichier-par-fichier laisse les huit chemins créables et se fait empoisonner ; le niveau répertoire
+les bloque tous (`EROFS`) et le modèle reste sain — alors qu'il aurait obéi. La protection vient donc
+du système de fichiers, pas du modèle, et l'agent demeure fonctionnel. Preuves : annexe C.3.
 
 # Bonus — exfiltration via un domaine pourtant autorisé
 
 ## Le problème
 
-Une allowlist de domaines ne suffit pas. Si `api.exemple-autorisé.com` est autorisé pour une raison
-légitime, un attaquant peut exfiltrer un secret en l'encodant dans une requête vers ce même domaine
-(paramètre d'URL, sous-domaine DNS, corps POST) : le filtre « destination » laisse passer, car la
-destination est valide. C'est l'angle mort de l'incident Cowork (Anthropic) : une allowlist octroie
-une capacité, elle ne valide pas l'intention.
+Une allowlist de domaines ne suffit pas. Le domaine du fournisseur de modèle (`api.anthropic.com`)
+est nécessairement autorisé, puisque l'agent doit l'atteindre pour fonctionner. C'est l'angle mort de
+l'incident Cowork : par injection, un attaquant fait utiliser à l'agent *sa propre* clé API
+Anthropic ; les données ciblées partent alors, en apparence légitimement, vers `api.anthropic.com` —
+mais atterrissent dans l'espace Anthropic de l'attaquant, dont la clé les capte. La destination est
+valide, le filtre laisse passer : une allowlist octroie une capacité, elle ne valide pas l'intention.
 
 ## La correction
 
@@ -368,10 +393,13 @@ session scopé, MITM défensif) :
 - **Destination** — sur `tp_internal --internal`, le durci ne peut pas joindre `api.anthropic.com`
   en direct : la tentative est bloquée réseau, il ne peut donc pas court-circuiter la passerelle.
 
-Le jeton de session scopé est précisément la clé virtuelle ; l'inspection du contenu et la
-journalisation (budget, rate-limit, modèles autorisés, révocation) sont natives côté LiteLLM. Le
-filtrage par destination est ainsi complété par un contrôle par provenance — une défense en
-profondeur plutôt qu'un filtre unique.
+Le jeton de session scopé est précisément la clé virtuelle. Surtout, LiteLLM journalise chaque
+requête : on dispose ainsi d'un point d'audit centralisé où inspecter, en temps réel ou a posteriori,
+ce que l'agent envoie et reçoit (avec budget, *rate-limit*, modèles autorisés, révocation de clé).
+Cette journalisation fait aussi office de canari — une requête vers un modèle inattendu, un volume
+anormal ou un motif d'exfiltration y sont détectables et peuvent déclencher une alerte, là où le
+conteneur, lui, ne voit rien passer. Le filtrage par destination est ainsi complété par un contrôle
+de provenance et une capacité de détection : une défense en profondeur plutôt qu'un filtre unique.
 
 # Surface résiduelle et limites
 
@@ -379,8 +407,7 @@ Un modèle de menace honnête nomme ce qu'il ne couvre pas :
 
 - `~/.claude` reste en tmpfs rw, l'agent devant y écrire son état runtime. Les noms de config
   connus y sont neutralisés par des placeholders `:ro`, mais un fichier d'un autre nom qu'une future
-  version lirait resterait possible ; la recréation du conteneur (anti-persistance) efface tout dépôt
-  à chaque cycle.
+  version de Claude Code lirait resterait possible.
 - Les *managed settings* (`/etc/claude-code/…`, précédence maximale) ne sont pas déployés ; en
   entreprise, `allowManagedHooksOnly` et `disableSideloadFlags` durciraient davantage.
 - La pile d'hébergement du modèle (Ollama, LiteLLM) est une surface à part entière (§3.4), hors
@@ -390,6 +417,12 @@ Un modèle de menace honnête nomme ce qu'il ne couvre pas :
 
 L'exécution d'un éventuel hook déposé serait de toute façon doublement bloquée dans le durci (`/tmp`
 en `noexec` et racine `--read-only`).
+
+Une mesure complémentaire, non exigée par l'énoncé, consiste à détruire et recréer périodiquement le
+conteneur. Elle a deux effets : un agent éventuellement compromis est ramené à son état initial
+(toute persistance qui aurait échappé au `:ro` disparaît avec le `tmpfs`) ; et surtout, les données
+de session des utilisateurs — potentiellement sensibles — sont effacées à chaque cycle plutôt que de
+s'accumuler dans la sandbox.
 
 # Matrice de conformité
 

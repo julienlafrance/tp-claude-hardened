@@ -1,7 +1,7 @@
 \begin{tikzpicture}[node distance=8mm]
 \node[hbox, text width=0.74\linewidth] (host)
   {\textbf{Machine hôte réelle} — Linux 6.8 · Incus 7.1 · Docker 29.5.2};
-\node[hbox, below=19mm of host, xshift=-2.3cm, text width=4.5cm] (durci)
+\node[hbox, below=18mm of host, xshift=-2.3cm, text width=4.5cm] (durci)
   {\textbf{claude-hardened} — DURCI \textit{(pièce notée)}\\ config :ro · racine ro · non-root · cap-drop ALL};
 \node[ebox, right=8mm of durci, text width=3.1cm] (nu)
   {\textbf{claude-nu}\\ non durci — démo avant/après};
@@ -9,12 +9,22 @@
   \node[grp, fit=(durci)(nu), inner sep=9pt,
         label={[lbl]above:Anneau 1 — Incus LXC « tp-claude-host » (nesting) · Docker imbriqué}] (ring1) {};
 \end{scope}
-\node[ebox, below=18mm of ring1, text width=5.4cm] (gw)
+\node[ebox, below=15mm of ring1, text width=5.4cm] (gw)
   {Passerelle Incus (device) $\rightarrow$ \texttt{ixia:3101}};
-\node[hbox, below=8mm of gw, text width=6.4cm] (ixia)
-  {\textbf{ixia} — serveur externe de confiance\\ LiteLLM $\rightarrow$ Ollama (GPU) / vrai Claude};
+\node[hbox, below=8mm of gw, text width=6.8cm] (ixia)
+  {\textbf{ixia} — passerelle \textbf{LiteLLM} (externe)\\ journalise chaque requête · route vers l'une des 2 sorties :};
+% deux backends possibles, tous deux testés
+\node[ebox, below=12mm of ixia, xshift=-2.7cm, text width=3.6cm] (ollama)
+  {\textbf{Ollama} $\rightarrow$ modèle local (GPU)\\[1pt] \scriptsize \textit{interne — rien ne sort}};
+\node[ebox, below=12mm of ixia, xshift=2.7cm, text width=3.6cm] (anthropic)
+  {\textbf{API Anthropic} \textit{(clé API)}\\[1pt] \scriptsize \textit{modèle Claude standard}};
+\begin{scope}[on background layer]
+  \node[grp, fit=(anthropic), inner sep=6pt, label={[lbl]below:Internet}] (net) {};
+\end{scope}
 \draw[fl] (host) -- (ring1.north);
 \draw[fl] (durci.south) to[out=-90,in=155]
   node[pos=0.55,left,font=\scriptsize]{virtual key scopée} (gw.north west);
 \draw[fl] (gw) -- (ixia);
+\draw[fl] (ixia.south) to[out=-90,in=90] (ollama.north);
+\draw[fl] (ixia.south) to[out=-90,in=90] (anthropic.north);
 \end{tikzpicture}
