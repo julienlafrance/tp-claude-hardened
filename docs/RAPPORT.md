@@ -39,6 +39,16 @@ Le rapport suit la démarche : environnement (§2), modèle de menace et cartogr
 (§6), bonus (§7), surface résiduelle (§8) et matrice de conformité (§9). Les scripts, extraits de
 configuration et logs de preuve figurent en annexes A, B et C.
 
+## Code source et image Docker
+
+L'intégralité du code de ce TP — orchestration `run.sh`, profils de durcissement, scénarios
+d'attaque et preuves — est publiée, **anonymisée** (adresses réelles masquées, secrets factices),
+sur GitHub ; l'image Docker de l'agent est, elle, disponible sur Docker Hub :
+
+- Dépôt GitHub : <https://github.com/julienlafrance/tp-claude-hardened>
+- Image Docker Hub : <https://hub.docker.com/r/zurban/tp-claude-hardened>
+  (`docker pull zurban/tp-claude-hardened:latest`)
+
 # Environnement
 
 ## Architecture à deux anneaux
