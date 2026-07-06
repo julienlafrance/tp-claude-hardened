@@ -27,9 +27,9 @@ TITLE = r"""```{=latex}
 \centering
 \vspace*{0.3cm}
 \noindent
-\begin{minipage}[c]{0.55\textwidth}\raggedright\includegraphics[height=2.0cm]{telecom-paris.png}\end{minipage}%
+\begin{minipage}[c]{0.60\textwidth}\raggedright\includegraphics[width=6.3cm]{telecom-paris.png}\end{minipage}%
 \hfill
-\begin{minipage}[c]{0.40\textwidth}\raggedleft\includegraphics[height=1.55cm]{imt.png}\end{minipage}
+\begin{minipage}[c]{0.36\textwidth}\raggedleft\includegraphics[width=3.9cm]{imt.png}\end{minipage}
 
 \vspace{1.8cm}
 {\scshape\large École nationale supérieure des télécommunications\par}
