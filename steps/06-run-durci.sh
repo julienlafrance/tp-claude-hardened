@@ -112,7 +112,17 @@ fi
 # (settings.json/CLAUDE.md/skills/.mcp.json) sont des binds :ro montes PAR-DESSUS,
 # donc restent inalterables quel que soit le proprietaire du workspace.
 # -----------------------------------------------------------------------------
-chown -R 10001:10001 "$WORKSPACE" 2>/dev/null || warn "chown workspace -> 10001 impossible (droits hote ?) ; l'agent pourrait ne pas ecrire /workspace."
+# Hote SANS root ni sudo (ex. un visiteur qui clone le depot) : chown impossible.
+# Repli : rendre le workspace (dossier de TEST jetable) inscriptible par tous. Les
+# fichiers restent a l'utilisateur hote (il peut les modifier/supprimer), l'agent
+# (UID 10001) peut y ecrire ; l'isolation du conteneur est inchangee.
+if ! chown -R 10001:10001 "$WORKSPACE" 2>/dev/null; then
+  if chmod -R a+rwX "$WORKSPACE" 2>/dev/null; then
+    warn "chown workspace -> 10001 impossible (pas root) : repli chmod a+rwX sur le workspace de test."
+  else
+    warn "workspace ni chown ni chmod possibles : l'agent pourrait ne pas ecrire /workspace."
+  fi
+fi
 
 # -----------------------------------------------------------------------------
 # DURCISSEMENT AU NIVEAU REPERTOIRE (ferme la surface « depot de fichier neuf »).
