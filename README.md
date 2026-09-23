@@ -178,7 +178,7 @@ Verified on 2026-09-23 from a fresh clone, as a non-root user with Docker only:
 git clone https://github.com/julienlafrance/tp-claude-hardened && cd tp-claude-hardened
 docker pull zurban/tp-claude-hardened:latest && docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
 cp config/ssh-authorized_keys.example config/ssh-authorized_keys
-SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # ~15 s; results in evidence/results.md
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # a few seconds (steps 00–08); results in evidence/results.md
 SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh down    # removes containers and networks
 ```
 

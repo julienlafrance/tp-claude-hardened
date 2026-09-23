@@ -140,7 +140,7 @@ Vérifié le 2026-09-23 depuis un clone neuf, en utilisateur non-root avec Docke
 git clone https://github.com/julienlafrance/tp-claude-hardened && cd tp-claude-hardened
 docker pull zurban/tp-claude-hardened:latest && docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
 cp config/ssh-authorized_keys.example config/ssh-authorized_keys
-SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # ~15 s ; résultats dans evidence/results.md
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # quelques secondes (étapes 00 à 08) ; résultats dans evidence/results.md
 SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh down    # supprime conteneurs et réseaux
 ```
 
