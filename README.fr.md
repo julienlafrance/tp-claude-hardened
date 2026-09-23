@@ -132,6 +132,23 @@ cat evidence/results.md
 cat evidence/attacks-durci-detail.log   # commande + code retour + hash avant/après
 ```
 
+### Essayer sur sa machine (sans Incus ni backend LiteLLM)
+
+Vérifié le 2026-09-23 depuis un clone neuf, en utilisateur non-root avec Docker seul :
+
+```bash
+git clone https://github.com/julienlafrance/tp-claude-hardened && cd tp-claude-hardened
+docker pull zurban/tp-claude-hardened:latest && docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
+cp config/ssh-authorized_keys.example config/ssh-authorized_keys
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # ~15 s ; résultats dans evidence/results.md
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh down    # supprime conteneurs et réseaux
+```
+
+Résultat attendu : attaques 1 à 6 **réussies sur `nu`, bloquées sur `durci`** (6/7). Le bonus (n°7)
+est affiché **non testé** : prouver le rejet d'une clé étrangère exige la passerelle LiteLLM
+(`.secret/litellm.env`), absente du dépôt. Sans root, le 2ᵉ verrou (propriété `root:root` des
+sources de config) est sauté avec un avertissement ; les montages `:ro` (verrou noyau) ne changent pas.
+
 ### Sous-commandes de `run.sh`
 
 | Commande | Effet |

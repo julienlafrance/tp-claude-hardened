@@ -170,6 +170,24 @@ cat evidence/results.md
 cat evidence/attacks-durci-detail.log   # command + exit code + hash before/after
 ```
 
+### Trying it on your own machine (no Incus, no LiteLLM backend)
+
+Verified on 2026-09-23 from a fresh clone, as a non-root user with Docker only:
+
+```bash
+git clone https://github.com/julienlafrance/tp-claude-hardened && cd tp-claude-hardened
+docker pull zurban/tp-claude-hardened:latest && docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
+cp config/ssh-authorized_keys.example config/ssh-authorized_keys
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all     # ~15 s; results in evidence/results.md
+SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh down    # removes containers and networks
+```
+
+Expected result: attacks 1–6 **succeed on the bare profile and are blocked on the hardened one**
+(6/7). The bonus (#7) is reported as **not tested**: proving that a foreign key is rejected needs
+the LiteLLM gateway (`.secret/litellm.env`), which is not part of the repository. Without root,
+the second lock (`root:root` ownership of the config sources) is skipped with a warning; the
+kernel-enforced `:ro` mounts are unaffected.
+
 ### `run.sh` subcommands
 
 | Command | Effect |
