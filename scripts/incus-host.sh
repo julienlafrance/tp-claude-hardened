@@ -69,9 +69,8 @@ _instance_running() {
 #   interdit : ici on est dans un step lance par run.sh, sleep est legitime).
 # -----------------------------------------------------------------------------
 _wait_network() {
-  local i
   info "Attente de la connectivite reseau dans $INCUS_INSTANCE..."
-  for i in $(seq 1 30); do
+  for _ in $(seq 1 30); do
     if incus exec "$INCUS_INSTANCE" -- getent hosts deb.debian.org >/dev/null 2>&1; then
       ok "Connectivite reseau OK dans l'instance."
       return 0

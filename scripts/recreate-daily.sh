@@ -46,7 +46,7 @@ mkdir -p "$TP_ROOT/evidence"
 command -v docker >/dev/null 2>&1 || { echo "docker introuvable — ce script tourne DANS l'instance Incus."; exit 1; }
 
 ts()  { date '+%Y-%m-%dT%H:%M:%S%z'; }
-log() { local m="$(ts) [recreate] $*"; printf '%s\n' "$m"; printf '%s\n' "$m" >>"$LOG" 2>/dev/null || true; }
+log() { local m; m="$(ts) [recreate] $*"; printf '%s\n' "$m"; printf '%s\n' "$m" >>"$LOG" 2>/dev/null || true; }
 
 log "=== Recreation anti-persistance de '$NAME' (dans l'instance Incus) ==="
 

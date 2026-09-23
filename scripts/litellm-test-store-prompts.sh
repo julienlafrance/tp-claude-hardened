@@ -5,7 +5,7 @@
 #   3. lit la base : le marqueur est-il conservé ?
 #   4. REMET la config d'origine et redémarre (pas de capture durable d'Open WebUI)
 set -uo pipefail
-cd /home/julien/projet/cyber/tp; set -a; . .secret/litellm.env; set +a
+cd "$(dirname "$0")/.." || exit 1; set -a; . .secret/litellm.env; set +a
 CFG=/home/docker/litellm/litellm_config.yaml
 BAK=$CFG.bak-20260923-avant-store-prompts
 RUN=$(date +%H%M%S)
@@ -37,7 +37,8 @@ send T3-fin     "Reponds OK. $PAD$PAD $M-T3-$RUN"
 send T4-nolog   "Reponds OK. $M-T4-$RUN" '{"no-log":true}'
 
 echo "== 3. lecture de la base (attente de l'écriture des logs, max 3 min)"
-for i in $(seq 1 36); do
+for _ in $(seq 1 36); do
+  # shellcheck disable=SC2087  # expansion cote client voulue ($RUN/$T0)
   OUT=$(ssh -o BatchMode=yes ixia "U=\$(docker exec litellm-db printenv POSTGRES_USER); D=\$(docker exec litellm-db printenv POSTGRES_DB); docker exec -i litellm-db psql -U \$U -d \$D -At" <<SQL
 select t, count(*) filter (where txt like '%'||t||'-$RUN%') from (values ('T1'),('T2'),('T3'),('T4')) v(t)
  cross join (select messages::text||' '||proxy_server_request::text as txt from "LiteLLM_SpendLogs" where "startTime" > now() - interval '15 minutes') s group by t order by t;

@@ -33,7 +33,8 @@ docker ps --format '{{.Names}}' | grep -qx "$TARGET" || die "Conteneur $TARGET n
 # Delegation au groupe attacks si disponible.
 if [[ -x "$TP_ROOT/attacks/run-attacks.sh" ]]; then
   info "Delegation au groupe attacks: attacks/run-attacks.sh ($TARGET, $PROFILE)..."
-  TP_ROOT="$TP_ROOT" bash "$TP_ROOT/attacks/run-attacks.sh" "$TARGET" "$PROFILE" "$RESULTS_TSV"
+  export TP_ROOT
+  bash "$TP_ROOT/attacks/run-attacks.sh" "$TARGET" "$PROFILE" "$RESULTS_TSV"
   ok "Step 07 : attaques DURCI deleguees, resultats dans $RESULTS_TSV."
   exit 0
 fi

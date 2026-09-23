@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint all shell scripts (warnings are errors)
+        run: |
+          files=$(git ls-files '*.sh' run.sh agent/claude-session | sort -u)
+          docker run --rm -v "$PWD":/mnt:ro -w /mnt koalaman/shellcheck:stable -S warning $files
+
+  demo:
+    name: Before/after demo (visitor mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull the agent image
+        run: |
+          docker pull zurban/tp-claude-hardened:latest
+          docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
+
+      - name: Run the full fail-fast chain (no Incus, no LiteLLM backend)
+        run: |
+          cp config/ssh-authorized_keys.example config/ssh-authorized_keys
+          SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh all
+
+      - name: Check the before/after matrix
+        run: |
+          fail=0
+          for id in 1 2 3 4 5 6; do
+            nu=$(awk -F'\t' -v i="$id" '$1==i {print $4}' evidence/attacks-nu.tsv)
+            du=$(awk -F'\t' -v i="$id" '$1==i {print $4}' evidence/attacks-durci.tsv)
+            echo "attack $id: bare=$nu hardened=$du"
+            [ "$nu" = REUSSI ] && [ "$du" = BLOQUE ] || fail=1
+          done
+          # Bonus #7 needs the LiteLLM gateway: without it, it must be reported as NOT tested,
+          # never as blocked.
+          b=$(awk -F'\t' '$1==7 {print $4}' evidence/attacks-durci.tsv)
+          echo "bonus 7: hardened=$b (expected NON_TESTE without backend)"
+          [ "$b" = NON_TESTE ] || fail=1
+          cat evidence/results.md >> "$GITHUB_STEP_SUMMARY"
+          exit $fail
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence
+          path: evidence/
+
+      - name: Teardown
+        if: always()
+        run: SKIP_INCUS=1 KEEP_INCUS=1 ./run.sh down || true

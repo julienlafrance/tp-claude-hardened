@@ -42,7 +42,8 @@ docker ps --format '{{.Names}}' | grep -qx "$TARGET" || die "Conteneur $TARGET n
 # -----------------------------------------------------------------------------
 if [[ -x "$TP_ROOT/attacks/run-attacks.sh" ]]; then
   info "Delegation au groupe attacks: attacks/run-attacks.sh ($TARGET, $PROFILE)..."
-  TP_ROOT="$TP_ROOT" bash "$TP_ROOT/attacks/run-attacks.sh" "$TARGET" "$PROFILE" "$RESULTS_TSV"
+  export TP_ROOT
+  bash "$TP_ROOT/attacks/run-attacks.sh" "$TARGET" "$PROFILE" "$RESULTS_TSV"
   ok "Step 05 : attaques NU deleguees, resultats dans $RESULTS_TSV."
   exit 0
 fi

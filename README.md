@@ -1,5 +1,7 @@
 # Hardening a Claude Code agent in a Docker container
 
+[![CI](https://github.com/julienlafrance/tp-claude-hardened/actions/workflows/ci.yml/badge.svg)](https://github.com/julienlafrance/tp-claude-hardened/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > Version française : [README.fr.md](README.fr.md)
 
 > **Goal**: run the **Claude Code** agent inside a hardened **Docker** container
@@ -235,3 +237,9 @@ In French:
 - **Host isolation (Incus LXC vs VM)**: [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
 - **Detailed threat model**: [`docs/02-threat-model.md`](docs/02-threat-model.md).
 - **Threat references** (OWASP, MITRE ATLAS, Claude Code CVEs): [`docs/12-references-menaces.md`](docs/12-references-menaces.md).
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Julien Lafrance.

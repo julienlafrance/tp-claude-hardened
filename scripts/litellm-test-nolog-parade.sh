@@ -5,7 +5,7 @@
 #   3. vérifie en base que T6 laisse bien une ligne
 #   4. si la parade fonctionne : on GARDE le réglage ; sinon : config d'origine restaurée
 set -uo pipefail
-cd /home/julien/projet/cyber/tp; set -a; . .secret/litellm.env; set +a
+cd "$(dirname "$0")/.." || exit 1; set -a; . .secret/litellm.env; set +a
 CFG=/home/docker/litellm/litellm_config.yaml
 BAK=$CFG.bak-20260923-avant-nolog-parade
 RUN=$(date +%H%M%S)
@@ -35,7 +35,8 @@ send T5-temoin "Reponds OK. temoin $RUN"
 send T6-nolog  "Reponds OK. nolog $RUN" '{"no-log":true}'
 
 echo "== 3. lignes en base depuis $T0 (clé du TP, attente max 3 min)"
-for i in $(seq 1 36); do
+for _ in $(seq 1 36); do
+  # shellcheck disable=SC2087  # expansion cote client voulue ($RUN/$T0)
   N=$(ssh -o BatchMode=yes ixia "U=\$(docker exec litellm-db printenv POSTGRES_USER); D=\$(docker exec litellm-db printenv POSTGRES_DB); docker exec -i litellm-db psql -U \$U -d \$D -At" <<SQL
 select count(*) from "LiteLLM_SpendLogs" where "startTime" >= '$T0' and metadata->>'user_api_key_alias'='tp-claude-durci';
 SQL

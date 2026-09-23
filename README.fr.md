@@ -1,5 +1,7 @@
 # TP — Durcissement d'un agent Claude Code en conteneur Docker
 
+[![CI](https://github.com/julienlafrance/tp-claude-hardened/actions/workflows/ci.yml/badge.svg)](https://github.com/julienlafrance/tp-claude-hardened/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > English version: [README.md](README.md)
 
 > **Objectif** : faire tourner l'agent **Claude Code** dans un conteneur **Docker**
@@ -189,3 +191,9 @@ sources de config) est sauté avec un avertissement ; les montages `:ro` (verrou
 - **Backend LiteLLM vs proxy MITM** (justification « pas de proxy ») : [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
 - **Isolation hôte (LXC vs VM Incus)** : [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
 - **Matrice de vérification** : `evidence/results.md` (générée au run).
+
+---
+
+## Licence
+
+[MIT](LICENSE) © 2026 Julien Lafrance.
