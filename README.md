@@ -211,6 +211,7 @@ In French:
 
 - **Appendices** (scripts, seccomp profile, Dockerfile, evidence logs): [`docs/annexes.md`](docs/annexes.md).
 - **File-level defense in depth**: [`config/README-perms.md`](config/README-perms.md).
+- **Gateway observability** (LiteLLM logging, measured; settings to merge): [`backend/litellm-observabilite.yaml`](backend/litellm-observabilite.yaml), evidence in [`docs/preuves/litellm-journalisation/`](docs/preuves/litellm-journalisation/).
 - **LiteLLM backend vs MITM proxy** (why there is no proxy): [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
 - **Model backend (LiteLLM on ixia)**: [`docs/09-backend-modele.md`](docs/09-backend-modele.md); running Claude Code on a local model: [`docs/11-backend-llm-local.md`](docs/11-backend-llm-local.md).
 - **Host isolation (Incus LXC vs VM)**: [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).

@@ -168,6 +168,7 @@ cat evidence/attacks-durci-detail.log   # commande + code retour + hash avant/ap
 - **Rapport** (référence à jour) : [`docs/RAPPORT.md`](docs/RAPPORT.md) — partitionnement §4.2, mesures §4.4.
 - **Modèle de menace détaillé** : [`docs/02-threat-model.md`](docs/02-threat-model.md).
 - **Défense en profondeur niveau fichier** : [`config/README-perms.md`](config/README-perms.md).
+- **Observabilité de la passerelle** (journalisation LiteLLM mesurée, réglages à fusionner) : [`backend/litellm-observabilite.yaml`](backend/litellm-observabilite.yaml), preuves dans [`docs/preuves/litellm-journalisation/`](docs/preuves/litellm-journalisation/).
 - **Backend LiteLLM vs proxy MITM** (justification « pas de proxy ») : [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
 - **Isolation hôte (LXC vs VM Incus)** : [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
 - **Matrice de vérification** : `evidence/results.md` (générée au run).

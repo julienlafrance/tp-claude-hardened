@@ -446,9 +446,9 @@ The scoped session token is precisely the virtual key. LiteLLM is moreover a man
 that sees every request in clear text and logs its metadata (key, model, volume, status), with
 budget, *rate limit*, allowed models and key revocation. Measured: the attempt with a foreign key
 shows up there as a 401 failure (truncated key `sk-...1337`) — a natural canary for the Cowork
-scenario, whereas the container itself sees nothing go by. Two limits, also measured: a client can
-erase its trace by adding `"no-log": true` to its request (served, but no row logged; the
-server-side countermeasure `global_disable_no_log_param` was not tested); and keeping request
+scenario, whereas the container itself sees nothing go by. Two limits, also measured: by default, a
+client can erase its trace by adding `"no-log": true` to its request (served, but no row logged)
+— closed by the server-side setting `global_disable_no_log_param`, tested then left enabled; and keeping request
 content (`store_prompts_in_spend_logs`, tested then disabled) truncates every string to 2,048
 characters, keeping the beginning and the end — a marker placed in the middle of a long text is
 lost.
@@ -466,7 +466,8 @@ An honest threat model names what it does not cover:
   `allowManagedHooksOnly` and `disableSideloadFlags` would harden further.
 - The model hosting stack (Ollama, LiteLLM) is an attack surface in its own right (§3.4), out of the
   assignment's scope. LiteLLM was in fact upgraded to v1.89.7 (CVE-2026-84377, leak of the provider
-  key by an authenticated client), and its logging can be erased by the client (`no-log`, §7.2).
+  key by an authenticated client), and the setting that prevents the client from erasing its trace (`no-log`, §7.2) is enabled
+  there (`backend/litellm-observabilite.yaml`).
 - The Incus instance's egress (ring 1) is not restricted; the hardened container is nevertheless
   contained by `--internal`, independently of the instance's Internet access.
 

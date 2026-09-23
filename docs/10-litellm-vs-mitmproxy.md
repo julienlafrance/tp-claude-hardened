@@ -55,7 +55,7 @@ toute façon **pas** joindre `api.anthropic.com` en direct.
 | **Provenance / identité** — rejeter une clé étrangère | **Ré-auth LiteLLM** : virtual key validée, clé cliente ignorée, appel amont avec la clé d'ixia |
 | **Destination** — empêcher de joindre autre chose | **Verrou réseau** : Docker `--internal` |
 | **Inspection de contenu** — canari, secret dans le corps | LiteLLM voit le corps en clair ; conservation / guardrails possibles, **non activés** dans le TP |
-| **Observabilité des tentatives** — tracer les requêtes | **Logs LiteLLM** (métadonnées : clé, modèle, volume, statut ; une clé étrangère apparaît en échec 401 — mesuré). Limites : un client peut effacer sa ligne avec `"no-log": true` (mesuré) ; les sorties directes bloquées par `--internal` ne sont pas journalisées |
+| **Observabilité des tentatives** — tracer les requêtes | **Logs LiteLLM** (métadonnées : clé, modèle, volume, statut ; une clé étrangère apparaît en échec 401 — mesuré). Un client pouvait effacer sa ligne avec `"no-log": true` (mesuré), fermé par `global_disable_no_log_param` (mesuré). Limite : les sorties directes bloquées par `--internal` ne sont pas journalisées |
 
 Les **deux défenses qui comptent** — provenance et destination — sont donc déjà
 assurées, chacune par un composant **dédié et mieux placé** que le proxy :
@@ -128,8 +128,10 @@ corps, et aucun guardrail n'est déployé. Mesures du 2026-09-23 (LiteLLM v1.89.
 `store_prompts_in_spend_logs` activé le temps d'un test conserve bien le corps, mais **tronqué à
 2 048 caractères par chaîne** (35 % début + 65 % fin : un marqueur au milieu d'un texte de 10 000
 caractères est perdu) ; et une requête portant `"no-log": true` est **servie sans laisser aucune
-ligne** en base — un agent compromis peut donc effacer sa trace. Parade à valider :
-`litellm_settings: global_disable_no_log_param: true`. C'est une
+ligne** en base — un agent compromis peut donc effacer sa trace. Parade **validée et active** sur ixia :
+`litellm_settings: global_disable_no_log_param: true` (la requête `no-log` laisse alors sa
+ligne). Réglages : [`backend/litellm-observabilite.yaml`](../backend/litellm-observabilite.yaml) ;
+preuves : [`preuves/litellm-journalisation/`](preuves/litellm-journalisation/). C'est une
 capacité disponible, pas une défense démontrée — et le blocage actif sur le canal modèle serait
 de toute façon discutable (bloquer un prompt contenant légitimement des données est intrusif).
 Les deux autres aspects (provenance + jeton scopé) sont natifs, actifs et prouvés (HTTP 401).

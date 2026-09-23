@@ -1,0 +1,20 @@
+# =============================================================================
+#  Réglages d'observabilité de la passerelle LiteLLM (backend ixia, hors anneau 2)
+#  À fusionner dans litellm_config.yaml. Mesures : docs/preuves/litellm-journalisation/.
+#  Version : LiteLLM v1.89.7 (v1.89.4 vulnérable CVE-2026-84377).
+# =============================================================================
+
+litellm_settings:
+  # ACTIF sur ixia depuis le 2026-09-23. Sans ce réglage, un client (donc un agent
+  # compromis) efface sa requête des logs en ajoutant "no-log": true au corps :
+  # requête servie (HTTP 200) et AUCUNE ligne en base (mesuré). Avec : la ligne reste.
+  global_disable_no_log_param: true
+
+general_settings:
+  # OPTIONNEL, NON ACTIF sur ixia. Conserve le corps des requêtes (champ
+  # proxy_server_request des spend logs). Mesuré : fonctionne, mais chaque chaîne
+  # est tronquée à 2048 caractères (35 % début + 65 % fin) -> un marqueur au milieu
+  # d'un long texte est perdu. Relever via la variable d'env MAX_STRING_LENGTH_PROMPT_IN_DB.
+  # Attention : capte TOUT le trafic de la passerelle (ici aussi Open WebUI) -> rétention
+  # et accès à la console LiteLLM à encadrer.
+  # store_prompts_in_spend_logs: true
