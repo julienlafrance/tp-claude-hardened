@@ -404,13 +404,16 @@ session scopé, MITM défensif) :
 - **Destination** — sur `tp_internal --internal`, le durci ne peut pas joindre `api.anthropic.com`
   en direct : la tentative est bloquée réseau, il ne peut donc pas court-circuiter la passerelle.
 
-Le jeton de session scopé est précisément la clé virtuelle. Surtout, LiteLLM est un point de
+Le jeton de session scopé est précisément la clé virtuelle. LiteLLM est en outre un point de
 passage obligé qui voit chaque requête en clair et en journalise les métadonnées (clé, modèle,
-volume) : c'est un point d'audit centralisé, avec budget, *rate-limit*, modèles autorisés et
-révocation de clé. Cette journalisation peut faire office de canari — une requête vers un modèle
-inattendu ou un volume anormal y sont détectables, là où le conteneur, lui, ne voit rien passer.
-Conserver le contenu des requêtes (`store_prompts_in_spend_logs`) ou l'inspecter activement
-(*guardrails*) est possible, mais n'est pas activé dans le TP. Le filtrage par destination est ainsi complété par un contrôle
+volume, statut), avec budget, *rate-limit*, modèles autorisés et révocation de clé. Mesuré : la
+tentative avec une clé étrangère y apparaît en échec 401 (clé tronquée `sk-...1337`) — un canari
+naturel du scénario Cowork, là où le conteneur, lui, ne voit rien passer. Deux limites, mesurées
+elles aussi : un client peut effacer sa trace en ajoutant `"no-log": true` à sa requête (servie,
+mais aucune ligne journalisée ; la parade serveur `global_disable_no_log_param` n'a pas été
+testée) ; et la conservation du contenu (`store_prompts_in_spend_logs`, testée puis désactivée)
+tronque chaque texte à 2 048 caractères en gardant début et fin — un marqueur placé au milieu
+d'un long texte est perdu. Le filtrage par destination est ainsi complété par un contrôle
 de provenance et une capacité de détection : une défense en profondeur plutôt qu'un filtre unique.
 
 # Surface résiduelle et limites
@@ -423,7 +426,9 @@ Un modèle de menace honnête nomme ce qu'il ne couvre pas :
 - Les *managed settings* (`/etc/claude-code/…`, précédence maximale) ne sont pas déployés ; en
   entreprise, `allowManagedHooksOnly` et `disableSideloadFlags` durciraient davantage.
 - La pile d'hébergement du modèle (Ollama, LiteLLM) est une surface à part entière (§3.4), hors
-  périmètre du TP.
+  périmètre du TP. LiteLLM a d'ailleurs été mis à jour en v1.89.7 (CVE-2026-84377, fuite de la clé
+  du fournisseur par un client authentifié), et sa journalisation peut être effacée par le client
+  (`no-log`, §7.2).
 - L'egress de l'instance Incus (anneau 1) n'est pas restreint ; le durci reste néanmoins contenu par
   `--internal`, indépendamment de l'Internet de l'instance.
 

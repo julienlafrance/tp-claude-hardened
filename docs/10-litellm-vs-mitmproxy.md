@@ -55,7 +55,7 @@ toute façon **pas** joindre `api.anthropic.com` en direct.
 | **Provenance / identité** — rejeter une clé étrangère | **Ré-auth LiteLLM** : virtual key validée, clé cliente ignorée, appel amont avec la clé d'ixia |
 | **Destination** — empêcher de joindre autre chose | **Verrou réseau** : Docker `--internal` |
 | **Inspection de contenu** — canari, secret dans le corps | LiteLLM voit le corps en clair ; conservation / guardrails possibles, **non activés** dans le TP |
-| **Observabilité des tentatives** — tracer les requêtes | **Logs LiteLLM** (métadonnées : clé, modèle, volume). Les tentatives de sortie directe bloquées par `--internal` ne sont pas journalisées (limite) |
+| **Observabilité des tentatives** — tracer les requêtes | **Logs LiteLLM** (métadonnées : clé, modèle, volume, statut ; une clé étrangère apparaît en échec 401 — mesuré). Limites : un client peut effacer sa ligne avec `"no-log": true` (mesuré) ; les sorties directes bloquées par `--internal` ne sont pas journalisées |
 
 Les **deux défenses qui comptent** — provenance et destination — sont donc déjà
 assurées, chacune par un composant **dédié et mieux placé** que le proxy :
@@ -123,8 +123,13 @@ réel et éprouvé, pas un proxy jouet :
 | **Proxy inspectant le contenu** | LiteLLM **voit** le corps en clair (il termine la connexion) ; il peut le conserver (`store_prompts_in_spend_logs`) et l'inspecter activement (**guardrails** PII / canari) |
 
 Nuance d'honnêteté : dans le TP, l'inspection de contenu **n'est pas activée**. LiteLLM
-journalise les **métadonnées** de chaque requête (clé, modèle, volume) mais ne conserve pas le
-corps (`store_prompts_in_spend_logs` non activé), et aucun guardrail n'est déployé. C'est une
+journalise les **métadonnées** des requêtes (clé, modèle, volume, statut) mais ne conserve pas le
+corps, et aucun guardrail n'est déployé. Mesures du 2026-09-23 (LiteLLM v1.89.7) :
+`store_prompts_in_spend_logs` activé le temps d'un test conserve bien le corps, mais **tronqué à
+2 048 caractères par chaîne** (35 % début + 65 % fin : un marqueur au milieu d'un texte de 10 000
+caractères est perdu) ; et une requête portant `"no-log": true` est **servie sans laisser aucune
+ligne** en base — un agent compromis peut donc effacer sa trace. Parade à valider :
+`litellm_settings: global_disable_no_log_param: true`. C'est une
 capacité disponible, pas une défense démontrée — et le blocage actif sur le canal modèle serait
 de toute façon discutable (bloquer un prompt contenant légitimement des données est intrusif).
 Les deux autres aspects (provenance + jeton scopé) sont natifs, actifs et prouvés (HTTP 401).
