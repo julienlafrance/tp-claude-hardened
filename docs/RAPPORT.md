@@ -276,6 +276,7 @@ La défense en profondeur ajoute, chacune fermant une menace précise :
 | Egress verrouillé | `--network tp_internal` (`--internal`) | exfiltration, C2, téléchargement de payload |
 | Limites cgroups | `--memory 2g --pids-limit 256 --cpus 2` | DoS local, fork-bomb, épuisement CPU/RAM |
 | Secrets hors image | injection runtime scopée | vol de credential depuis un layer d'image |
+| Trace non effaçable (passerelle) | LiteLLM `global_disable_no_log_param` (hors conteneur) | effacement de sa trace par l'agent (`no-log`) ; détection a posteriori |
 
 Le profil seccomp mérite une note, car le noyau est partagé (anneau 1 = LXC) : c'est une allowlist
 (deny par défaut) qui exclut `mount`, `ptrace`, `bpf` et le chargement de modules, filtre `clone`
@@ -411,7 +412,7 @@ tentative avec une clé étrangère y apparaît en échec 401 (clé tronquée `s
 naturel du scénario Cowork, là où le conteneur, lui, ne voit rien passer. Deux limites, mesurées
 elles aussi : par défaut, un client peut effacer sa trace en ajoutant `"no-log": true` à sa
 requête (servie, mais aucune ligne journalisée) — fermé par le réglage serveur
-`global_disable_no_log_param`, testé puis laissé actif ; et la conservation du contenu (`store_prompts_in_spend_logs`, testée puis désactivée)
+`global_disable_no_log_param`, testé puis laissé actif (annexe C.5) ; et la conservation du contenu (`store_prompts_in_spend_logs`, testée puis désactivée)
 tronque chaque texte à 2 048 caractères en gardant début et fin — un marqueur placé au milieu
 d'un long texte est perdu. Le filtrage par destination est ainsi complété par un contrôle
 de provenance et une capacité de détection : une défense en profondeur plutôt qu'un filtre unique.
@@ -468,3 +469,4 @@ s'accumuler dans la sandbox.
 | Tableau des couples attaque / résultat | §6.2 |
 | **BONUS** | |
 | Exfil via domaine autorisé + correction | §7 |
+| Observabilité à la passerelle (trace non effaçable, canari 401) | §4.4, §7.2 ; annexe C.5 |

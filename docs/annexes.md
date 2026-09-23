@@ -216,3 +216,20 @@ Vrais `claude -p` détournés tentant d'écrire dans la config :
 
 [qwen3:8b · DURCI]  (vraie tâche primes.py) -> OK  => l'agent reste FONCTIONNEL malgré le durci
 ```
+
+## Journalisation de la passerelle LiteLLM (`docs/preuves/litellm-journalisation/`)
+
+LiteLLM v1.89.7, clé du TP, `qwen3:8b` ; lecture de la table `LiteLLM_SpendLogs`
+(scripts `scripts/litellm-test-*.sh`) :
+
+```text
+réglage                  requête                   résultat
+défaut                   marqueur court            ligne ; contenu {} (non conservé)
+défaut                   clé étrangère sk-...1337  401 + ligne "failure" (canari)
+défaut                   "no-log": true            200, AUCUNE ligne (trace effacée)
+no_log_param désactivé   "no-log": true            200, ligne présente
+store_prompts (retiré)   marqueur au milieu        perdu (troncature 2 048)
+store_prompts (retiré)   marqueur en fin           conservé
+```
+("no_log_param désactivé" = `global_disable_no_log_param: true`, actif sur ixia.)
+

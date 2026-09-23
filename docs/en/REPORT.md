@@ -313,6 +313,7 @@ Defense in depth adds the following, each closing a specific threat:
 | Locked egress | `--network tp_internal` (`--internal`) | exfiltration, C2, payload download |
 | cgroup limits | `--memory 2g --pids-limit 256 --cpus 2` | local DoS, fork bomb, CPU/RAM exhaustion |
 | Secrets outside the image | scoped runtime injection | credential theft from an image layer |
+| Non-erasable trace (gateway) | LiteLLM `global_disable_no_log_param` (outside the container) | the agent erasing its own trace (`no-log`); after-the-fact detection |
 
 The seccomp profile deserves a note, because the kernel is shared (ring 1 = LXC): it is an allowlist
 (deny by default) that excludes `mount`, `ptrace`, `bpf` and module loading, filters `clone` to
@@ -448,7 +449,7 @@ budget, *rate limit*, allowed models and key revocation. Measured: the attempt w
 shows up there as a 401 failure (truncated key `sk-...1337`) — a natural canary for the Cowork
 scenario, whereas the container itself sees nothing go by. Two limits, also measured: by default, a
 client can erase its trace by adding `"no-log": true` to its request (served, but no row logged)
-— closed by the server-side setting `global_disable_no_log_param`, tested then left enabled; and keeping request
+— closed by the server-side setting `global_disable_no_log_param`, tested then left enabled (appendix C.5); and keeping request
 content (`store_prompts_in_spend_logs`, tested then disabled) truncates every string to 2,048
 characters, keeping the beginning and the end — a marker placed in the middle of a long text is
 lost.
@@ -507,3 +508,4 @@ sandbox.
 | Attack / result pairs table | §6.2 |
 | **BONUS** | |
 | Exfil through an allowed domain + fix | §7 |
+| Gateway observability (non-erasable trace, 401 canary) | §4.4, §7.2; appendix C.5 |
