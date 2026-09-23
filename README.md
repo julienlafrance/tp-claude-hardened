@@ -1,171 +1,220 @@
-# TP — Durcissement d'un agent Claude Code en conteneur Docker
+# Hardening a Claude Code agent in a Docker container
 
-> **Objectif** : faire tourner l'agent **Claude Code** dans un conteneur **Docker**
-> durci et démontrer, par une démo **AVANT/APRÈS**, que le durcissement par
-> **partitionnement read-only du filesystem** protège la config et l'état de
-> l'agent (`settings.json`, `CLAUDE.md`, `SKILL.md`, `.mcp.json`) contre un agent
-> compromis — là où un profil **nu** (non durci) se laisse attaquer.
+> Version française : [README.fr.md](README.fr.md)
+
+> **Goal**: run the **Claude Code** agent inside a hardened **Docker** container
+> and show, with a **BEFORE/AFTER** demo, that hardening through **read-only
+> filesystem partitioning** protects the agent's configuration and state
+> (`settings.json`, `CLAUDE.md`, `SKILL.md`, `.mcp.json`) against a compromised
+> agent, whereas a **bare** (non-hardened) profile gets attacked successfully.
 >
-> Le **livrable central** est un **PDF détaillé** : [`docs/RAPPORT.md`](docs/RAPPORT.md)
-> → généré via [`scripts/build-pdf.sh`](scripts/build-pdf.sh) (`out/RAPPORT.pdf`).
+> This repository is a graded assignment for the DATA707 course (*Cybersecurity
+> for Big Data & AI*, Télécom Paris). The main deliverable is a detailed report:
+> **English translation in [`docs/en/REPORT.md`](docs/en/REPORT.md)**; French
+> original in [`docs/RAPPORT.md`](docs/RAPPORT.md) / [`docs/RAPPORT.pdf`](docs/RAPPORT.pdf).
+> The rest of the documentation (`docs/`, `attacks/`, appendices) and the code
+> comments are in French.
 
 ---
 
-## 1. Architecture (2 anneaux)
+## Results at a glance
+
+Each attack is replayed against both profiles. The proof for each attempt is the
+command, its exit code, and the (truncated) SHA-256 of the target **before and after**
+(see [`docs/preuves/`](docs/preuves/)).
+
+| # | Attempted attack | **Bare** agent | **Hardened** agent | Responsible mechanism |
+|---|---|---|---|---|
+| 1 | Rewrite `settings.json` (add a hook) | Succeeded | **Blocked** | `:ro` bind mount (kernel-enforced) |
+| 2 | Modify `CLAUDE.md` | Succeeded | **Blocked** | `:ro` bind mount |
+| 3 | Tamper with a skill (`SKILL.md`) | Succeeded | **Blocked** | skills mounted `:ro` |
+| 4 | Add a server to `.mcp.json` | Succeeded | **Blocked** | `:ro` bind mount |
+| 5 | Exfiltrate a (fake) secret | Succeeded | **Blocked** | secret not mounted + no egress (`--internal` network) |
+| 6 | Destructive command outside the workspace | Succeeded | **Blocked** | `--read-only` root filesystem |
+| 7 | BONUS: exfiltration through an allowed domain | Succeeded | **Blocked** | foreign API key rejected by LiteLLM (HTTP 401) + no network bypass |
+
+**7 / 7** pairs match the expected matrix (bare = succeeded, hardened = blocked).
+Full table: [`docs/preuves/resultats.md`](docs/preuves/resultats.md).
+
+The hardened container runs with: non-root user (UID 10001), `--read-only` root,
+`/tmp` as `noexec` tmpfs, `--cap-drop=ALL`, `no-new-privileges`, a restricted
+seccomp allowlist, an internal-only network, memory/CPU/PID limits, and the
+whole project `.claude/` directory mounted read-only, as well as the config
+files (`CLAUDE.md`, `.mcp.json`, user settings and skills). Read-only
+placeholders block the creation of new config files such as `CLAUDE.local.md`,
+`settings.local.json`, `commands/` or `agents/`. Known residual risk: `~/.claude`
+stays a writable tmpfs (runtime state), so other new file names can still be
+created there (report, §8). See
+[`steps/06-run-durci.sh`](steps/06-run-durci.sh), where every flag is commented.
+
+---
+
+## 1. Architecture (two rings)
 
 ```
-corrin (hôte réel)
-  └── Incus « tp-claude-host » (simule une VM jetable = ANNEAU 1)
-        └── Docker imbriqué
-              ├── claude-hardened (DURCI = ANNEAU 2, PIÈCE NOTÉE)   IP fixe 172.31.7.2
-              └── claude-nu       (NON durci, démo AVANT)
+corrin (physical host)
+  └── Incus "tp-claude-host" (disposable lab host = RING 1)
+        └── nested Docker
+              ├── claude-hardened (HARDENED = RING 2, the graded part)   fixed IP 172.31.7.2
+              └── claude-nu       (bare, the BEFORE demo)
 ```
 
-- **Tout tourne DANS l'instance Incus** (`docker`/`bash`) ; aucune commande
-  opérationnelle depuis corrin.
-- **Backend modèle** = **LiteLLM** externe sur **ixia** (`backend-host:3101`,
-  hors périmètre). Le durci l'atteint **uniquement** via la passerelle figée
-  `tp_internal` `172.31.7.1:3101` (device Incus `litellm` → ixia). Réseau
-  `tp_internal --internal` : **aucune route Internet**.
-- **Pas de proxy MITM ni de serveur d'exfil** : la **provenance** est assurée par
-  la ré-auth LiteLLM (une clé cliente étrangère → **401**), la **destination** par
-  le réseau (`--internal`). Cf. [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
-- **SSH** : chaîne de bridges **corrin → incus → docker:2222** (dropbear), posée
-  une seule fois (l'IP du durci est fixe). Cf. [`scripts/ssh-bridge.sh`](scripts/ssh-bridge.sh).
+- **Everything runs INSIDE the Incus instance** (`docker`/`bash`); no operational
+  command is run from the physical host.
+- **Model backend** = an external **LiteLLM** on **ixia** (`backend-host:3101`,
+  out of scope). The hardened container reaches it **only** through the fixed
+  `tp_internal` gateway `172.31.7.1:3101` (Incus device `litellm` → ixia).
+  The `tp_internal` network is created with `--internal`: **no route to the Internet**.
+- **No MITM proxy, no exfiltration server**: **provenance** is enforced by
+  LiteLLM re-authenticating upstream with its own key (a foreign client key →
+  **401**), **destination** by the network (`--internal`). See
+  [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
+- **No Anthropic key ever enters the sandbox**: the agent authenticates to
+  LiteLLM with a **scoped virtual key**; `ANTHROPIC_API_KEY` stays empty.
+- **SSH**: bridge chain **corrin → incus → docker:2222** (dropbear), set up once
+  (the hardened container's IP is fixed). SSH sessions are pinned to Claude Code
+  by a forced command, never a shell. See [`scripts/ssh-bridge.sh`](scripts/ssh-bridge.sh).
 
-## 2. Index / arborescence
+## 2. Repository layout
 
 ```
 tp/
-├── README.md                  (ce fichier — index + quickstart)
-├── run.sh                     (orchestrateur fail-fast : ./run.sh all|up|attacks|down)
-├── Makefile                   (raccourcis au-dessus de run.sh : make all|up|attack|clean)
-├── docker-compose.yml         (variante déclarative : profils "nu" et "durci")
-├── .env.example               (modèle d'env pour Compose ; copier en .env)
+├── README.md                  (this file; French version in README.fr.md)
+├── run.sh                     (fail-fast orchestrator: ./run.sh all|up|attacks|down)
+├── Makefile                   (shortcuts on top of run.sh: make all|up|attack|clean)
+├── docker-compose.yml         (declarative variant: "nu" and "durci" profiles)
+├── .env.example               (env template for Compose; copy to .env)
 │
-├── .secret/                   (secrets backend — HORS dépôt, gitignoré)
+├── .secret/                   (backend secrets, NOT in the repo, gitignored)
 │   ├── README.md
-│   └── litellm.env.example    (modèle : virtual key LiteLLM scopée, endpoint, modèle)
+│   └── litellm.env.example    (template: scoped LiteLLM virtual key, endpoint, model)
 │
-├── agent/                     (image de l'agent : claude-hardened:latest = zurban/tp-claude-hardened)
-│   ├── Dockerfile             (USER agent UID 10001, non-root ; dropbear pour SSH)
+├── agent/                     (agent image: claude-hardened:latest = zurban/tp-claude-hardened)
+│   ├── Dockerfile             (USER agent UID 10001, non-root; dropbear for SSH)
 │   ├── entrypoint.sh
-│   ├── claude-session         (forced-command SSH : lance Claude Code, jamais un shell)
-│   ├── seccomp-claude.json    (profil seccomp restreint — allowlist de syscalls)
+│   ├── claude-session         (SSH forced command: starts Claude Code, never a shell)
+│   ├── seccomp-claude.json    (restricted seccomp profile, syscall allowlist)
 │   └── .dockerignore
 │
-├── config/                    (SOURCES figées root:root 0444/0555 de la config agent)
-│   ├── project-settings.json  -> /workspace/.claude/settings.json     (:ro durci)
-│   ├── project-CLAUDE.md       -> /workspace/CLAUDE.md                 (:ro durci)
-│   ├── project-mcp.json        -> /workspace/.mcp.json                 (:ro durci)
-│   ├── project-skills/         -> /workspace/.claude/skills            (:ro durci)
-│   ├── user-settings.json      -> /home/agent/.claude/settings.json    (:ro durci)
-│   ├── user-skills/            -> /home/agent/.claude/skills           (:ro durci)
-│   ├── fake_token.txt          -> /run/secrets/fake_token.txt   (profil NU UNIQUEMENT)
-│   ├── ssh-authorized_keys.example  (clé SSH autorisée — durcissement forced-command)
-│   └── README-perms.md         (2e verrou : permissions POSIX, défense en profondeur)
-├── workspace/                 (dépôt de test, monté :rw — seule zone métier écrivable)
+├── config/                    (frozen root:root 0444/0555 sources of the agent config)
+│   ├── project-settings.json   -> /workspace/.claude/settings.json     (:ro when hardened)
+│   ├── project-CLAUDE.md       -> /workspace/CLAUDE.md                 (:ro when hardened)
+│   ├── project-mcp.json        -> /workspace/.mcp.json                 (:ro when hardened)
+│   ├── project-skills/         -> /workspace/.claude/skills            (:ro when hardened)
+│   ├── user-settings.json      -> /home/agent/.claude/settings.json    (:ro when hardened)
+│   ├── user-skills/            -> /home/agent/.claude/skills           (:ro when hardened)
+│   ├── fake_token.txt          -> /run/secrets/fake_token.txt   (BARE profile ONLY)
+│   ├── ssh-authorized_keys.example  (authorized SSH key, forced-command hardening)
+│   └── README-perms.md         (second lock: POSIX permissions, defense in depth)
+├── workspace/                 (test repo, mounted :rw, the only writable work area)
 │
-├── steps/                     (étapes unitaires 00..09 appelées par run.sh)
+├── steps/                     (unit steps 00..09 called by run.sh)
 │   ├── 00-preflight.sh        05-attacks-nu.sh
 │   ├── 01-incus-host.sh       06-run-durci.sh
 │   ├── 02-build.sh            07-attacks-durci.sh
 │   ├── 03-config-perms.sh     08-results-table.sh
 │   └── 04-run-nu.sh           09-teardown.sh
-├── attacks/                   (scénarios d'attaque documentés 01..06 + payloads d'injection)
-├── lib/log.sh                 (logger partagé + chargement de .secret/litellm.env)
+├── attacks/                   (documented attack scenarios 01..06 + injection payloads)
+├── lib/log.sh                 (shared logger + loading of .secret/litellm.env)
 ├── scripts/
-│   ├── incus-host.sh          (provisionne l'hôte Incus jetable "tp-claude-host")
-│   ├── ssh-bridge.sh          (bridge SSH corrin → incus → docker, posé une fois)
-│   ├── recreate-daily.sh      (recréation anti-persistance, interne à l'instance)
-│   ├── systemd/               (tp-recreate.service + .timer : recréation 24 h)
-│   └── build-pdf.sh           (docs/RAPPORT.md -> out/RAPPORT.pdf)
-├── docs/                      (documentation : sections 01..10 + RAPPORT.md assemblé)
-├── evidence/                  (preuves générées au RUN : run.log, *.tsv, results.md ; gitignoré)
-└── out/                       (artefacts : RAPPORT.pdf ; gitignoré)
+│   ├── incus-host.sh          (provisions the disposable Incus host "tp-claude-host")
+│   ├── ssh-bridge.sh          (SSH bridge corrin → incus → docker, set up once)
+│   ├── recreate-daily.sh      (anti-persistence re-creation, runs inside the instance)
+│   ├── systemd/               (tp-recreate.service + .timer: re-creation every 24 h)
+│   └── build-pdf.sh           (docs/RAPPORT.md -> PDF)
+├── docs/                      (documentation, sections 01..12, report, published evidence)
+│   └── preuves/               (sanitized evidence: attack logs, before/after hashes)
+├── evidence/                  (raw evidence generated at run time; gitignored)
+└── out/                       (build artifacts; gitignored)
 ```
 
-*(Le code écarté du design à proxy — `proxy/`, `exfil/` — est conservé en local
-sous `old/` mais n'est **pas** dans le dépôt.)*
+*"nu" = bare, "durci" = hardened, "preuves" = evidence.*
 
 ---
 
-## 3. Prérequis
+## 3. Prerequisites
 
-| Prérequis | Statut | Détail |
+| Prerequisite | Status | Details |
 |---|---|---|
-| **Docker** (démon joignable, DANS l'instance) | **REQUIS** | Imposé par le TP. L'agent ET son exécution tournent DANS des conteneurs Docker. |
-| **`.secret/litellm.env`** (virtual key LiteLLM) | requis au **runtime** | Clé LiteLLM **scopée** (jamais la master key) = auth de l'agent vers le backend LiteLLM externe (ixia). Chargée par `lib/log.sh`, jamais dans l'image ni le dépôt. Sans elle, les steps basculent sur un fallback bash et les attaques FS/egress fonctionnent quand même. |
-| **Incus** (LXC/VM) | anneau 1 | Hôte jetable `tp-claude-host`. Si l'on travaille déjà dans l'hôte, poser `SKIP_INCUS=1`. |
-| `pandoc` + moteur LaTeX | optionnel | Pour générer le PDF. `scripts/build-pdf.sh` a un fallback documenté. |
+| **Docker** (reachable daemon, INSIDE the instance) | **REQUIRED** | Imposed by the assignment. The agent and everything it runs live in Docker containers. |
+| **`.secret/litellm.env`** (LiteLLM virtual key) | required at **runtime** | **Scoped** LiteLLM key (never the master key), used by the agent to authenticate to the external LiteLLM backend. Loaded by `lib/log.sh`, never baked into the image or committed. Without it the steps fall back to bash, and the filesystem/egress attacks still run. |
+| **Incus** (LXC/VM) | ring 1 | Disposable host `tp-claude-host`. If you are already inside a host, set `SKIP_INCUS=1`. |
+| `pandoc` + a LaTeX engine | optional | To build the PDF report. |
 
-> **Sécurité (rappel non négociable)** : tous les secrets sont **FACTICES**
-> (`FAKE-CORP-TOKEN-do-not-exfiltrate-1337`), aucune cible tierce réelle n'est
-> visée, et **aucune clé Anthropic n'entre dans la sandbox** (seule une virtual
-> key LiteLLM scopée sert d'auth ; `ANTHROPIC_API_KEY` reste vide).
+> **Safety**: every secret used in the attacks is **FAKE**
+> (`FAKE-CORP-TOKEN-do-not-exfiltrate-1337`), no real third-party target is
+> attacked, and **no Anthropic key enters the sandbox**.
 
 ---
 
-## 4. QUICKSTART (dans l'instance Incus)
+## 4. Quickstart (inside the Incus instance)
 
 ```bash
-# 0) Image de l'agent : build local, OU pull depuis DockerHub sur une VM neuve
+# 0) Agent image: build locally, OR pull it from Docker Hub on a fresh VM
 docker pull zurban/tp-claude-hardened:latest \
   && docker tag zurban/tp-claude-hardened:latest claude-hardened:latest
 
-# 1) Secret backend (hors dépôt) : coller la virtual key LiteLLM scopée
+# 1) Backend secret (outside the repo): paste the scoped LiteLLM virtual key
 cp .secret/litellm.env.example .secret/litellm.env
-#    éditer .secret/litellm.env : LITELLM_VIRTUAL_KEY=sk-... (sinon fallback bash)
+#    edit .secret/litellm.env: LITELLM_VIRTUAL_KEY=sk-... (otherwise bash fallback)
 
-# 2) Clé SSH autorisée (durci) : y mettre votre clé publique
+# 2) Authorized SSH key (hardened profile): put your public key in it
 cp config/ssh-authorized_keys.example config/ssh-authorized_keys
-#    éditer config/ssh-authorized_keys
+#    edit config/ssh-authorized_keys
 
-# 3) Chaîne complète fail-fast : 00 -> 08 (sans teardown).
-SKIP_INCUS=1 ./run.sh all       # SKIP_INCUS=1 si l'on est déjà dans l'instance
+# 3) Full fail-fast chain: 00 -> 08 (no teardown)
+SKIP_INCUS=1 ./run.sh all       # SKIP_INCUS=1 if you are already inside the instance
 
-# 4) Lire la preuve AVANT/APRÈS : table des 6 attaques + bonus.
+# 4) Read the BEFORE/AFTER proof
 cat evidence/results.md
-cat evidence/attacks-durci-detail.log   # commande + code retour + hash avant/après
+cat evidence/attacks-durci-detail.log   # command + exit code + hash before/after
 ```
 
-### Sous-commandes de `run.sh`
+### `run.sh` subcommands
 
-| Commande | Effet |
+| Command | Effect |
 |---|---|
-| `./run.sh all` | Enchaîne 00 → 08 en fail-fast (préreq, hôte, build, perms, NU+attaques, DURCI+attaques, table). |
-| `./run.sh up` | Prépare l'infra et lance NU + DURCI (00,01,02,03,04,06) sans rejouer les attaques. |
-| `./run.sh attacks` | Rejoue les attaques NU + DURCI puis agrège `evidence/results.md` (05,07,08). |
-| `./run.sh down` | Teardown : arrêt conteneurs/réseaux (Incus optionnel, `KEEP_INCUS=1` pour le garder). |
-| `./run.sh <step>` | Exécute un step isolé, ex. `./run.sh 06-run-durci`. |
+| `./run.sh all` | Runs 00 → 08 fail-fast (prerequisites, host, build, permissions, bare + attacks, hardened + attacks, results table). |
+| `./run.sh up` | Prepares the infrastructure and starts bare + hardened (00, 01, 02, 03, 04, 06) without replaying the attacks. |
+| `./run.sh attacks` | Replays the attacks on bare + hardened, then builds `evidence/results.md` (05, 07, 08). |
+| `./run.sh down` | Teardown: stops containers/networks (Incus optional, `KEEP_INCUS=1` keeps it). |
+| `./run.sh <step>` | Runs a single step, e.g. `./run.sh 06-run-durci`. |
 
-> **Recréation anti-persistance** : `scripts/recreate-daily.sh` (interne à
-> l'instance) détruit et recrée le durci ; l'IP fixe garde le bridge SSH valide.
-> Timer 24 h dans `scripts/systemd/`.
+> **Anti-persistence re-creation**: `scripts/recreate-daily.sh` (runs inside the
+> instance) destroys and re-creates the hardened container; the fixed IP keeps
+> the SSH bridge valid. 24 h timer in `scripts/systemd/`.
 >
-> **Variante Compose** (déclarative) : `docker compose --profile durci up -d`
-> (ou `--profile nu`). `run.sh` reste la voie de référence (il provisionne aussi
-> l'hôte, les permissions et les preuves).
+> **Compose variant** (declarative): `docker compose --profile durci up -d`
+> (or `--profile nu`). `run.sh` remains the reference path (it also provisions
+> the host, the permissions and the evidence).
 
 ---
 
-## 5. Générer le livrable PDF
+## 5. Building the PDF report
 
 ```bash
-./scripts/build-pdf.sh            # produit out/RAPPORT.pdf depuis docs/RAPPORT.md
+./scripts/build-pdf.sh            # builds the PDF from docs/RAPPORT.md
 ```
-
-- Source assemblée : [`docs/RAPPORT.md`](docs/RAPPORT.md) (sections 01..10).
-- Si `pandoc`/LaTeX absents, le script l'indique et propose un fallback.
 
 ---
 
-## 6. Pour aller plus loin
+## 6. Further reading
 
-- **Modèle de menace & partitionnement** : [`docs/02-threat-model.md`](docs/02-threat-model.md),
-  [`docs/03-partition-table.md`](docs/03-partition-table.md).
-- **Design de durcissement** (chaque mesure justifiée) : [`docs/04-durcissement.md`](docs/04-durcissement.md).
-- **Défense en profondeur niveau fichier** : [`config/README-perms.md`](config/README-perms.md).
-- **Backend LiteLLM vs proxy MITM** (justification « pas de proxy ») : [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
-- **Isolation hôte (LXC vs VM Incus)** : [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
-- **Matrice de vérification** : `evidence/results.md` (générée au run).
+In English, the full report [`docs/en/REPORT.md`](docs/en/REPORT.md):
+[threat model](docs/en/REPORT.md#3-threat-model),
+[hardening design](docs/en/REPORT.md#4-hardening-design),
+[before/after demonstration](docs/en/REPORT.md#6-before--after-demonstration),
+[bonus: exfiltration through an allowed domain](docs/en/REPORT.md#7-bonus--exfiltration-through-an-allowed-domain),
+[residual surface](docs/en/REPORT.md#8-residual-surface-and-limits).
+
+In French:
+
+- **Appendices** (scripts, seccomp profile, Dockerfile, evidence logs): [`docs/annexes.md`](docs/annexes.md).
+- **File-level defense in depth**: [`config/README-perms.md`](config/README-perms.md).
+- **LiteLLM backend vs MITM proxy** (why there is no proxy): [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
+- **Host isolation (Incus LXC vs VM)**: [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
+- **Threat references** (OWASP, MITRE ATLAS, Claude Code CVEs): [`docs/12-references-menaces.md`](docs/12-references-menaces.md).
+
+> Some older working notes in `docs/` (`01`, `04`–`07`, `09`) predate a design change
+> (an earlier version used a MITM egress proxy, since replaced by LiteLLM
+> re-authentication). The report is the up-to-date reference.
