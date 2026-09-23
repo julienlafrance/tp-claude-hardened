@@ -352,9 +352,9 @@ The `run.sh` orchestrator chains unit steps `steps/00..09`, step N+1 starting on
 Three verbs are enough:
 
 ```bash
-./run.sh up                  # prepares networks, frozen root:root 0444 config, starts both profiles
-./run.sh attacks             # replays the 6 attacks (+ bonus) on nu THEN durci, builds the table
-./run.sh 08-results-table    # (re)aggregates the evidence -> attack/result table
+./run.sh up                # networks, frozen 0444 config, starts both profiles
+./run.sh attacks           # 6 attacks (+ bonus) on nu THEN durci + table
+./run.sh 08-results-table  # (re)aggregates the evidence -> table
 ```
 
 The partitioning is carried by `steps/06-run-durci.sh`. The full `docker run` command is reproduced
@@ -442,11 +442,13 @@ session token, defensive MITM):
   `api.anthropic.com` directly: the attempt is blocked at the network level, so it cannot bypass the
   gateway.
 
-The scoped session token is precisely the virtual key. Above all, LiteLLM logs every request: this
-provides a centralized audit point where what the agent sends and receives can be inspected, in real
-time or after the fact (with budget, *rate limit*, allowed models, key revocation). This logging
-also acts as a canary — a request to an unexpected model, an abnormal volume or an exfiltration
-pattern can be detected there and trigger an alert, whereas the container itself sees nothing go by.
+The scoped session token is precisely the virtual key. Above all, LiteLLM is a mandatory
+checkpoint that sees every request in clear text and logs its metadata (key, model, volume): it is a
+centralized audit point, with budget, *rate limit*, allowed models and key revocation. This logging
+can act as a canary — a request to an unexpected model or an abnormal volume can be detected there,
+whereas the container itself sees nothing go by. Keeping request content
+(`store_prompts_in_spend_logs`) or inspecting it actively (*guardrails*) is possible, but is not
+enabled in this assignment.
 Destination filtering is thus complemented by a provenance check and a detection capability:
 defense in depth rather than a single filter.
 

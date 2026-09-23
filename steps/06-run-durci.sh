@@ -225,7 +225,7 @@ ok "Conteneur $NAME demarre (non-root, --read-only, config :ro, cap-drop ALL, se
 # L'agent durci est sur tp_internal (--internal) -> 'docker -p' n'y publie RIEN.
 # L'acces SSH se fait par un PROXY DEVICE INCUS pose cote HOTE qui
 # forwarde le poste hote:<port> -> <ip-conteneur-durci>:2222 (dropbear). Il est cree par
-# scripts/ssh-bridge.sh (lance sur l'hote). Voir docs/07-installation.md.
+# scripts/ssh-bridge.sh (lance sur l'hote).
 # =============================================================================
 info "Acces SSH : via proxy device Incus cote hote (scripts/ssh-bridge.sh) -> dropbear de $NAME:2222."
 

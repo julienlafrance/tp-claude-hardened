@@ -8,8 +8,9 @@
 > l'agent (`settings.json`, `CLAUDE.md`, `SKILL.md`, `.mcp.json`) contre un agent
 > compromis — là où un profil **nu** (non durci) se laisse attaquer.
 >
-> Le **livrable central** est un **PDF détaillé** : [`docs/RAPPORT.md`](docs/RAPPORT.md)
-> → généré via [`scripts/build-pdf.sh`](scripts/build-pdf.sh) (`out/RAPPORT.pdf`).
+> Le **livrable central** est un **rapport détaillé** : [`docs/RAPPORT.md`](docs/RAPPORT.md)
+> (PDF : [`docs/RAPPORT.pdf`](docs/RAPPORT.pdf), généré via [`scripts/build-pdf.sh`](scripts/build-pdf.sh)).
+> Traduction anglaise : [`docs/en/REPORT.md`](docs/en/REPORT.md).
 
 ---
 
@@ -82,7 +83,7 @@ tp/
 │   ├── recreate-daily.sh      (recréation anti-persistance, interne à l'instance)
 │   ├── systemd/               (tp-recreate.service + .timer : recréation 24 h)
 │   └── build-pdf.sh           (docs/RAPPORT.md -> out/RAPPORT.pdf)
-├── docs/                      (documentation : sections 01..10 + RAPPORT.md assemblé)
+├── docs/                      (rapport RAPPORT.md/.pdf + annexes, docs d'approfondissement, preuves/, en/)
 ├── evidence/                  (preuves générées au RUN : run.log, *.tsv, results.md ; gitignoré)
 └── out/                       (artefacts : RAPPORT.pdf ; gitignoré)
 ```
@@ -157,16 +158,15 @@ cat evidence/attacks-durci-detail.log   # commande + code retour + hash avant/ap
 ./scripts/build-pdf.sh            # produit out/RAPPORT.pdf depuis docs/RAPPORT.md
 ```
 
-- Source assemblée : [`docs/RAPPORT.md`](docs/RAPPORT.md) (sections 01..10).
+- Sources : [`docs/RAPPORT.md`](docs/RAPPORT.md) (corps) + [`docs/annexes.md`](docs/annexes.md) (annexes A/B/C).
 - Si `pandoc`/LaTeX absents, le script l'indique et propose un fallback.
 
 ---
 
 ## 6. Pour aller plus loin
 
-- **Modèle de menace & partitionnement** : [`docs/02-threat-model.md`](docs/02-threat-model.md),
-  [`docs/03-partition-table.md`](docs/03-partition-table.md).
-- **Design de durcissement** (chaque mesure justifiée) : [`docs/04-durcissement.md`](docs/04-durcissement.md).
+- **Rapport** (référence à jour) : [`docs/RAPPORT.md`](docs/RAPPORT.md) — partitionnement §4.2, mesures §4.4.
+- **Modèle de menace détaillé** : [`docs/02-threat-model.md`](docs/02-threat-model.md).
 - **Défense en profondeur niveau fichier** : [`config/README-perms.md`](config/README-perms.md).
 - **Backend LiteLLM vs proxy MITM** (justification « pas de proxy ») : [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
 - **Isolation hôte (LXC vs VM Incus)** : [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).

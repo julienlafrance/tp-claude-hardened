@@ -96,4 +96,4 @@ Quelle que soit l'option d'anneau 1, on **n'affaiblit jamais** l'anneau 2 :
 - jamais `--privileged`, `--network=host`, `seccomp=unconfined`, ni `--cap-add` larges ;
 - `realpath` (resolution des symlinks) **avant** toute validation de chemin.
 
-Voir [`04-durcissement.md` §4.4](04-durcissement.md).
+Voir le rapport, §4.6 « Pièges explicitement évités » ([`RAPPORT.md`](RAPPORT.md)).

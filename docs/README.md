@@ -1,55 +1,52 @@
 # Documentation — TP « Durcissement d'un agent Claude Code en Docker »
 
-> Index de la documentation. Le livrable du TP est un **PDF** genere a partir de
-> [`RAPPORT.md`](RAPPORT.md) (qui assemble toutes les sections ci-dessous).
+> Le livrable du TP est le **rapport** [`RAPPORT.md`](RAPPORT.md) (PDF : [`RAPPORT.pdf`](RAPPORT.pdf)),
+> complété par ses [`annexes.md`](annexes.md). C'est la **référence à jour** : les documents
+> ci-dessous l'approfondissent sur des points précis.
 >
-> Agent reel : **Claude Code** (`claude` v2.1.191). Conteneurisation : **Docker 29.5.2**
-> (impose). Hote jetable : **conteneur Incus LXC** `tp-claude-host` (`security.nesting=true`).
-> Source de verite du design : [`../PLAN.md`](../PLAN.md).
+> English translation of the report: [`en/REPORT.md`](en/REPORT.md).
+>
+> Agent réel : **Claude Code** (`claude` v2.1.191). Conteneurisation : **Docker 29.5.2**
+> (imposé). Hôte jetable : **conteneur Incus LXC** `tp-claude-host` (`security.nesting=true`).
 
 ---
 
-## Sommaire des sections
+## Documents
 
-| # | Document | Contenu |
-|---|---|---|
-| 01 | [`01-environnement.md`](01-environnement.md) | Environnement : hote Linux, instance Incus LXC `tp-claude-host`, agent Claude Code v2.1.191, image Docker `claude-hardened` |
-| 02 | [`02-threat-model.md`](02-threat-model.md) | Modele de menace : actif protege (config/etat agent), 3 categories de menace, rayon d'impact |
-| 03 | [`03-partition-table.md`](03-partition-table.md) | **Piece maitresse** : tableau de partitionnement du filesystem (chemin / ro-rw-tmpfs / menace) |
-| 04 | [`04-durcissement.md`](04-durcissement.md) | **Piece maitresse** : design de durcissement, chaque mesure justifiee par une menace + bonus MITM |
-| 05 | [`05-avant-apres.md`](05-avant-apres.md) | Demo avant/apres : table des 6 attaques + bonus (nu vs durci) + ou trouver les preuves |
-| 06 | [`06-architecture.md`](06-architecture.md) | Schemas : boucle agentique, conteneur AVANT vs APRES, vue Mermaid |
-| 07 | [`07-installation.md`](07-installation.md) | Installation/exploitation en commandes bash (reflet de `run.sh` et des etapes 00..09) |
-| 08 | [`08-isolation-hote.md`](08-isolation-hote.md) | Isolation hote : conteneur LXC (implemente) vs VM Incus (ideal recommande) |
-| 09 | [`09-backend-modele.md`](09-backend-modele.md) | **Annexe** : backend modele EXTERNE (LiteLLM v1.89.4 -> Ollama sur ixia `backend-host:3101`), frontiere de confiance, stack `docker compose` (secrets en `${VARS}`) |
+| Document | Contenu |
+|---|---|
+| [`RAPPORT.md`](RAPPORT.md) | **Rapport** : environnement, modèle de menace, conception du durcissement, installation, démo avant/après (7/7), bonus, surface résiduelle, matrice de conformité |
+| [`annexes.md`](annexes.md) | Annexes A/B/C : `docker run` durci, profil seccomp, Dockerfile, scénarios d'attaque, logs de preuve |
+| [`02-threat-model.md`](02-threat-model.md) | Modèle de menace détaillé : actif protégé, 3 catégories de risque, cartographie de la surface de configuration |
+| [`08-isolation-hote.md`](08-isolation-hote.md) | Isolation de l'hôte (anneau 1) : conteneur LXC (implémenté) vs VM Incus (idéal recommandé) |
+| [`09-backend-modele.md`](09-backend-modele.md) | Backend modèle externe : LiteLLM v1.89.4 sur ixia (`backend-host:3101`), frontière de confiance, stack `docker compose` |
+| [`10-litellm-vs-mitmproxy.md`](10-litellm-vs-mitmproxy.md) | Pourquoi une passerelle LiteLLM ré-authentifiante + `--internal` remplace un proxy MITM dédié (bonus) |
+| [`11-backend-llm-local.md`](11-backend-llm-local.md) | Faire exécuter des outils à Claude Code avec un modèle local (recette `qwen3:8b`) et variante Claude Sonnet 5 |
+| [`12-references-menaces.md`](12-references-menaces.md) | Références sourcées : OWASP, MITRE ATLAS, CVE Claude Code / MCP, recherche sur l'empoisonnement de modèles |
+| [`preuves/`](preuves/) | Preuves publiées (sanitisées) : résultats 7/7, détail par attaque, niveau répertoire, détournement *live* |
 
 ---
 
-## Generer le PDF
+## Générer le PDF
 
 ```bash
-cd /home/julien/projet/cyber/tp
-./scripts/build-pdf.sh          # produit out/RAPPORT.pdf via pandoc (voir le script pour le fallback)
+./scripts/build-pdf.sh          # docs/RAPPORT.md + docs/annexes.md -> out/RAPPORT.pdf (pandoc + lualatex)
 ```
-
-Le rapport assemble pret a convertir est [`RAPPORT.md`](RAPPORT.md).
 
 ---
 
-## Conventions autoritaires (rappel)
+## Conventions
 
-| Element | Valeur |
+| Élément | Valeur |
 |---|---|
-| Repertoire projet | `/home/julien/projet/cyber/tp` |
-| Images | `claude-hardened:latest`, `tp-egress-proxy:latest`, `tp-exfil-server:latest` |
-| User agent | `agent` (UID 10001), HOME `/home/agent`, workspace `/workspace` |
-| Reseaux | `tp_internal` (internal), `tp_egress` |
-| Proxy / exfil | `egress-proxy:8080` / `exfil-server:8000` |
-| Secret factice | `/run/secrets/fake_token.txt` = `FAKE-CORP-TOKEN-do-not-exfiltrate-1337` |
-| Profils | `nu` (vulnerable) vs `durci` (protege) |
-| Backend modele (externe) | LiteLLM `backend-host:3101` -> Ollama ; `ANTHROPIC_BASE_URL=${LITELLM_ENDPOINT}`, `ANTHROPIC_AUTH_TOKEN=${LITELLM_VIRTUAL_KEY}` (scopee), `ANTHROPIC_API_KEY` vide |
-| Unique egress autorise | `backend-host` (endpoint modele) — default-deny ailleurs |
+| Image | `claude-hardened:latest` (= `zurban/tp-claude-hardened` sur Docker Hub), commune aux deux profils |
+| Utilisateur agent | `agent` (UID 10001), HOME `/home/agent`, workspace `/workspace` |
+| Profils | `nu` (vulnérable, `--user 0:0`, config `:rw`, egress libre) vs `durci` (protégé) |
+| Réseau du durci | `tp_internal` (`--internal`, subnet `172.31.7.0/24`, IP fixe `172.31.7.2`) ; seule sortie : passerelle `172.31.7.1:3101` → LiteLLM |
+| Secret factice | `/run/secrets/fake_token.txt` = `FAKE-CORP-TOKEN-do-not-exfiltrate-1337` (monté sur `nu` uniquement) |
+| Backend modèle | `ANTHROPIC_BASE_URL` → LiteLLM ; `ANTHROPIC_AUTH_TOKEN` = clé virtuelle scopée ; `ANTHROPIC_API_KEY` vide |
 
-> **Securite du TP** : secrets **factices** uniquement, endpoint d'exfil **local**, aucune
-> action contre un systeme tiers reel. **Aucune cle Anthropic dans la sandbox** : l'auth modele
-> est une cle **LiteLLM scopee** (`.env` gitignore) ; les questions ne partent pas chez Anthropic.
+> **Sécurité du TP** : secrets **factices** uniquement, aucune action contre un système tiers
+> réel. **Aucune clé Anthropic dans la sandbox** : l'auth est une clé LiteLLM scopée (`.env`
+> gitignoré). Selon le modèle choisi dans LiteLLM, les requêtes restent locales (Ollama) ou
+> partent vers l'API Anthropic avec la clé de LiteLLM, jamais celle de l'agent.

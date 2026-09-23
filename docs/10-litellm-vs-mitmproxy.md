@@ -38,8 +38,8 @@ L'attaque suppose un **domaine public multi-tenant joignable en direct**. Or ici
 - Cette gateway **ré-authentifie en amont** avec sa **propre** clé (celle d'ixia)
   et **n'honore jamais** une clé fournie par le client.
 - Le **réseau interdit le contournement** : le conteneur est sur un réseau Docker
-  `--internal` (aucune route externe) + un **default-deny Incus/nftables** ; il ne
-  peut atteindre **que** la gateway.
+  `--internal` (aucune route externe) ; il ne peut atteindre **que** la gateway
+  (passerelle figée `172.31.7.1:3101`, device Incus vers ixia).
 
 Le vecteur Cowork (clé attaquant relayée vers un domaine public) **n'existe donc
 plus** : même si un agent compromis glisse une clé Anthropic dans la charge,
@@ -53,9 +53,9 @@ toute façon **pas** joindre `api.anthropic.com` en direct.
 | Défense attendue (rôle du MITM Anthropic) | Assurée ici par |
 |---|---|
 | **Provenance / identité** — rejeter une clé étrangère | **Ré-auth LiteLLM** : virtual key validée, clé cliente ignorée, appel amont avec la clé d'ixia |
-| **Destination** — empêcher de joindre autre chose | **Verrou réseau** : Docker `--internal` + default-deny Incus/nftables |
-| **Inspection de contenu** — canari, secret dans le corps | **Guardrails / logs LiteLLM** (côté ixia) |
-| **Observabilité des tentatives** — tracer les deny | **Log de deny nftables** (+ logs LiteLLM) |
+| **Destination** — empêcher de joindre autre chose | **Verrou réseau** : Docker `--internal` |
+| **Inspection de contenu** — canari, secret dans le corps | LiteLLM voit le corps en clair ; conservation / guardrails possibles, **non activés** dans le TP |
+| **Observabilité des tentatives** — tracer les requêtes | **Logs LiteLLM** (métadonnées : clé, modèle, volume). Les tentatives de sortie directe bloquées par `--internal` ne sont pas journalisées (limite) |
 
 Les **deux défenses qui comptent** — provenance et destination — sont donc déjà
 assurées, chacune par un composant **dédié et mieux placé** que le proxy :
@@ -98,8 +98,9 @@ son seul rôle « en plus » (le swap clé-hors-sandbox) ne protège que contre 
 **rendue impossible par le verrou d'egress** (cf. §4). On retient donc :
 
 - **Gateway LiteLLM ré-authentifiante** — provenance + scope + budget + audit ;
-- **verrou réseau** `--internal` + default-deny Incus/nftables — destination ;
-- **guardrails / logs LiteLLM** — contenu ; **log de deny nftables** — observabilité.
+- **verrou réseau** `--internal` — destination ;
+- **logs LiteLLM** — observabilité (métadonnées des requêtes ; conservation du contenu et
+  guardrails possibles, non activés dans le TP).
 
 Le MITM à terminaison TLS reste **documenté** comme la mitigation *du cas qu'on a
 précisément supprimé* (egress vers un domaine public multi-tenant). Le mentionner
@@ -119,13 +120,14 @@ réel et éprouvé, pas un proxy jouet :
 |---|---|
 | **MITM défensif** | Intermédiaire explicite (gateway) qui interpose, **termine** la connexion et **ré-authentifie** en amont avec la clé d'ixia (provenance) |
 | **Token de session scopé** | Les **virtual keys** LiteLLM *sont* des jetons scopés : modèle(s) autorisé(s), budget, rate-limit, TTL, révocables |
-| **Proxy inspectant le contenu** | LiteLLM voit et **journalise** le corps (audit) ; les **guardrails** (PII / canari) permettent l'inspection active |
+| **Proxy inspectant le contenu** | LiteLLM **voit** le corps en clair (il termine la connexion) ; il peut le conserver (`store_prompts_in_spend_logs`) et l'inspecter activement (**guardrails** PII / canari) |
 
-Nuance d'honnêteté : l'inspection de contenu est, par défaut, de la **visibilité**
-(logs), pas du blocage actif — ce qui est le bon choix sur le canal modèle
-(bloquer un prompt contenant légitimement des données est intrusif et vain). Un
-**guardrail canari** peut être activé pour la rendre démontrable ; les deux autres
-aspects (provenance + jeton scopé) sont natifs et actifs.
+Nuance d'honnêteté : dans le TP, l'inspection de contenu **n'est pas activée**. LiteLLM
+journalise les **métadonnées** de chaque requête (clé, modèle, volume) mais ne conserve pas le
+corps (`store_prompts_in_spend_logs` non activé), et aucun guardrail n'est déployé. C'est une
+capacité disponible, pas une défense démontrée — et le blocage actif sur le canal modèle serait
+de toute façon discutable (bloquer un prompt contenant légitimement des données est intrusif).
+Les deux autres aspects (provenance + jeton scopé) sont natifs, actifs et prouvés (HTTP 401).
 
 **Conclusion :** démontrer qu'une gateway ré-authentifiante couvre ces trois
 aspects — **plus** le verrou réseau pour la destination — est une correction

@@ -59,13 +59,11 @@ log() { printf '[entrypoint] %s\n' "$*" >&2; }
 # =============================================================================
 #  ETAPE 1 — Configuration de l'egress via PROXY (si fournie au runtime)
 # -----------------------------------------------------------------------------
-#  Le durcissement reseau (allowlist + MITM token) vit dans le conteneur proxy.
-#  Cote agent, il suffit d' orienter tout le trafic sortant vers ce proxy via
-#  les variables d'environnement standard. On NE code en dur AUCUNE adresse :
-#  c'est le script de run (07-run-durci.sh) qui injecte par ex. :
-#      -e HTTPS_PROXY=http://egress-proxy:8080
-#      -e HTTP_PROXY=http://egress-proxy:8080
-#      -e NO_PROXY=localhost,127.0.0.1
+#  Support GENERIQUE d'un proxy HTTP(S) sortant, via les variables standard
+#  (HTTPS_PROXY/HTTP_PROXY/NO_PROXY). Le TP n'en injecte AUCUN : le verrou
+#  d'egress du durci est le reseau tp_internal (--internal) et la provenance
+#  est assuree par LiteLLM (cf. docs/10-litellm-vs-mitmproxy.md). Ce bloc est
+#  donc inactif dans le TP et ne sert que si un operateur fournit un proxy.
 #
 #  Comportement :
 #    - Si une variable PROXY est deja fournie (majuscule OU minuscule), on

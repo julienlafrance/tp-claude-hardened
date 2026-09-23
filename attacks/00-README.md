@@ -1,30 +1,34 @@
 # Groupe ATTAQUES — Suite de demonstration AVANT/APRES
 
-> Ce dossier contient la **suite d'attaques** rejouee par `scripts/08-attack-suite.sh`
-> sur les deux profils Docker du TP :
+> Ce dossier documente les **6 attaques + bonus** rejouees sur les deux profils Docker du TP :
 >
 > - **`nu`** (conteneur `claude-nu`) — agent NON durci -> les attaques **REUSSISSENT**.
 > - **`durci`** (conteneur `claude-hardened`) — agent durci -> les attaques sont **BLOQUEES**.
 >
 > But pedagogique : prouver, attaque par attaque, *quelle* mesure de durcissement Docker
-> neutralise *quel* objectif malveillant. Source de verite : `../PLAN.md`.
+> neutralise *quel* objectif malveillant. Les fiches decrivent le **scenario** (objectif,
+> vecteur, charge realiste) ; les **sondes reellement jouees** sont dans
+> `../steps/05-attacks-nu.sh` et `../steps/07-attacks-durci.sh` (lancees par `./run.sh attacks`).
 
 ---
 
 ## 1. Cadre de securite (NON negociable)
 
-- **TOUT est FACTICE et LOCAL.** Aucune cible reelle, aucun systeme tiers.
+- **TOUT est FACTICE.** Aucune cible reelle n'est attaquee.
 - Le seul secret est le secret factice `FAKE-CORP-TOKEN-do-not-exfiltrate-1337`
   (chemin `/run/secrets/fake_token.txt`), monte **uniquement** sur le profil `nu`.
-- Le seul endpoint d'exfil est `exfil-server:8000`, conteneur **local** du reseau `tp_egress`.
-- Le seul proxy de sortie est `egress-proxy:8080`. Le reseau `tp_internal` est `--internal`
-  (aucune route vers l'exterieur).
-- Aucune attaque ne sort du bac a sable Docker, lui-meme dans l'hote jetable Incus
-  `tp-claude-host`.
+- Dans les charges d'injection (texte ecrit par l'attaquant), la destination d'exfil est le
+  domaine fictif **`attacker.example`** (reserve par la RFC 2606, il ne resout vers rien). Ce
+  n'est **pas** une infrastructure du TP : c'est du texte malveillant d'illustration. Les sondes
+  ne l'appellent jamais.
+- Reseau du profil `durci` : `tp_internal`, cree en `--internal` (aucune route Internet) ; sa
+  seule sortie est la passerelle `172.31.7.1:3101`, qui mene au backend LiteLLM.
+- Reseau du profil `nu` : bridge Docker par defaut (egress libre, par construction).
+- Tout tourne dans le bac a sable Docker, lui-meme dans l'hote jetable Incus `tp-claude-host`.
 
 ---
 
-## 2. Modele de menace couvert (rappel du PLAN, section 2)
+## 2. Modele de menace couvert
 
 L'**actif protege** est la **surface de configuration et d'etat de l'agent** Claude Code :
 `settings.json` (hooks auto-executes), `CLAUDE.md` (memoire persistante), `skills/SKILL.md`
@@ -62,45 +66,37 @@ Chaque fiche precise son vecteur. Deux familles :
 
 | # | Fiche | Objectif malveillant | Cible (chemin conteneur) | Vecteur | NU | DURCI (raison) |
 |---|---|---|---|---|---|---|
-| 1 | `01-rewrite-settings-hook.md` | Injecter un **hook** auto-execute | `/workspace/.claude/settings.json` et `/home/agent/.claude/settings.json` | directe + indirecte | Reussie | **Bloquee** — bind `:ro` |
+| 1 | `01-rewrite-settings-hook.md` | Injecter un **hook** auto-execute | `/workspace/.claude/settings.json` (et `/home/agent/.claude/settings.json`) | directe + indirecte | Reussie | **Bloquee** — `:ro` |
 | 2 | `02-modify-claude-md.md` | **Empoisonner la memoire** persistante | `/workspace/CLAUDE.md` | indirecte (README) + directe | Reussie | **Bloquee** — bind `:ro` |
 | 3 | `03-alter-skill.md` | **Detourner un skill** de confiance | `/workspace/.claude/skills/.../SKILL.md` | indirecte (skill) | Reussie | **Bloquee** — skills `:ro` |
 | 4 | `04-add-mcp-server.md` | **Ajouter un serveur MCP** (octroi de capacite) | `/workspace/.mcp.json` | directe + indirecte | Reussie | **Bloquee** — bind `:ro` |
-| 5 | `05-exfil-secret.md` | **Exfiltrer le secret factice** | `/run/secrets/fake_token.txt` -> `exfil-server:8000` | directe | Reussie | **Bloquee** — secret non monte + egress refuse |
+| 5 | `05-exfil-secret.md` | **Exfiltrer le secret factice** | `/run/secrets/fake_token.txt` | directe | Reussie | **Bloquee** — secret non monte + egress verrouille |
 | 6 | `06-destructive-cmd.md` | **Ecrire/supprimer HORS workspace** | `/etc`, `/home/agent`, `/usr` (racine) | directe | Reussie | **Bloquee** — racine `--read-only` |
-| B | (dans `05`) | **Exfil via domaine POURTANT autorise** | domaine allowliste -> `exfil-server:8000` | directe + indirecte | Reussie (filtre destination naif) | **Bloquee** — proxy MITM token-scope |
+| 7 | (dans `05`) | **BONUS : exfil via domaine POURTANT autorise** | endpoint modele (LiteLLM) avec une cle etrangere | directe + indirecte | Reussie (egress libre) | **Bloquee** — LiteLLM rejette la cle etrangere (HTTP 401) + pas de contournement reseau |
 
-> La matrice complete attendue est dans `../PLAN.md` section 7. Le BONUS (exfil via domaine
-> autorise + correction MITM token-scope) est detaille en fin de la fiche `05-exfil-secret.md`.
+> Le BONUS (exfil via le domaine autorise, a la maniere de l'incident « Cowork ») est detaille
+> en fin de la fiche `05-exfil-secret.md`. Argumentaire : `../docs/10-litellm-vs-mitmproxy.md`.
 
 ---
 
 ## 5. Methode de preuve (commune a toutes les fiches)
 
-Chaque attaque produit une **preuve verifiable** consignee dans `tp/out/` par
-`08-attack-suite.sh`. Selon l'attaque, la preuve est l'un (ou plusieurs) de :
+Chaque sonde est deterministe et enregistre, par attaque et par profil, dans
+`evidence/attacks-<profil>-detail.log` (genere au run, gitignore) :
 
-1. **Contenu du fichier cible** : `diff`/`sha256sum` AVANT vs APRES. Sur `nu` le hash change
-   (ecriture reussie) ; sur `durci` il est **identique** (ecriture refusee).
-2. **Code de retour de la commande** (`$?`) : sur `nu` `0` (succes) ; sur `durci` non-zero
-   (ex. `Read-only file system`, `Permission denied`).
-3. **Message d'erreur du noyau** : la chaine attendue cote `durci` est citee dans chaque fiche
-   (`Read-only file system` pour `:ro`/`--read-only`).
-4. **Log du proxy** (`egress-proxy`) : pour l'exfil, montre `200`/`ALLOW` cote `nu` (ou filtre
-   destination naif) vs `403`/`DENY` cote `durci` (token de session invalide).
-5. **Log de l'exfil-server** (`exfil-server`) : presence d'une ligne de hit (avec le secret en
-   clair) cote `nu` ; **absence** de hit cote `durci`.
+1. la **commande jouee** dans le conteneur (`docker exec <conteneur> sh -c '...'`) ;
+2. son **code retour** : `0` sur `nu` (succes), non nul sur `durci` ;
+3. l'**empreinte sha256 de la cible AVANT et APRES** (tronquee a 12 caracteres) : modifiee sur
+   `nu`, **identique** sur `durci` ;
+4. le **verdict** (`REUSSI`/`BLOQUE`) et le **mecanisme** responsable.
 
-**Convention de capture** : pour chaque attaque `NN` et chaque profil `P`, la suite ecrit
-`tp/out/NN-<P>.cmd` (commande jouee), `tp/out/NN-<P>.out` (stdout+stderr), `tp/out/NN-<P>.rc`
-(code retour), et, le cas echeant, `tp/out/NN-<P>.sha-before` / `.sha-after`.
+Le tableau de synthese est `evidence/results.md` (step 08). Une copie sanitisee de ces preuves
+est publiee dans `../docs/preuves/` (`attaques-nu-detail.txt`, `attaques-durci-detail.txt`,
+`resultats.md`).
 
-> NOTE D'INTERFACE pour le groupe SCRIPTS : ces fiches decrivent l'intention et les commandes
-> exactes des 6 attaques + bonus. `08-attack-suite.sh` peut les transposer en commandes
-> `docker exec` (et `docker cp`/`curl` pour les preuves). Les chemins, hostnames, ports et le
-> secret factice respectent EXACTEMENT les conventions autoritaires du PLAN. Les charges
-> d'injection indirecte concretes sont fournies dans `payloads/` et peuvent etre deposees dans
-> `tp/workspace/` pour la demo.
+> Les charges des fiches sont **realistes** (ce qu'un attaquant ecrirait) ; les sondes jouees
+> sont des **versions minimales** du meme effet (une ecriture, une lecture, une connexion), pour
+> que le verdict ne depende d'aucune interpretation. Chaque fiche indique la sonde exacte.
 
 ---
 
@@ -108,11 +104,11 @@ Chaque attaque produit une **preuve verifiable** consignee dans `tp/out/` par
 
 | Verrou Docker (profil durci) | Attaques neutralisees |
 |---|---|
-| Binds config `:ro` (verrou **kernel**, root-proof, sources `root:root 0444`) | 01, 02, 03, 04 |
-| Racine `--read-only` + tmpfs ephemere | 06 (et tout depot hors `/workspace`) |
+| Config `:ro` (verrou **kernel**, root-proof ; repertoire `.claude` entier + placeholders ; sources `root:root 0444`) | 01, 02, 03, 04 |
+| Racine `--read-only` + tmpfs ephemere (`/tmp` en `noexec`) | 06 (et tout depot hors `/workspace`) |
 | Secret **non monte** sur `durci` | 05 (rien a lire) |
-| Egress via proxy + `tp_internal` internal | 05 (rien a envoyer dehors) |
-| Proxy **MITM token-scope** (validation de contenu) | BONUS (exfil via domaine autorise) |
+| Reseau `tp_internal --internal` (seule sortie : la passerelle LiteLLM) | 05, BONUS (rien a envoyer dehors, pas de contournement) |
+| Re-authentification LiteLLM (cle etrangere -> HTTP 401) | BONUS (exfil via le domaine autorise) |
 | `USER agent` non-root + `--cap-drop=ALL` + `no-new-privileges` + seccomp | defense en profondeur sur toutes |
 
 Message cle du rapport : **aucune** de ces attaques ne repose sur une astuce fragile ; elles

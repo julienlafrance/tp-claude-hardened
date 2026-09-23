@@ -315,9 +315,9 @@ L'orchestrateur `run.sh` enchaîne des étapes unitaires `steps/00..09`, l'étap
 si N a réussi. Trois verbes suffisent :
 
 ```bash
-./run.sh up        # prépare réseaux, config figée root:root 0444, lance les 2 profils
-./run.sh attack    # rejoue les 6 attaques (+ bonus) sur nu PUIS durci
-./run.sh report    # agrège les preuves -> tableau attaque/résultat
+./run.sh up                # réseaux, config figée 0444, lance les 2 profils
+./run.sh attacks           # 6 attaques (+ bonus) sur nu PUIS durci + tableau
+./run.sh 08-results-table  # (ré)agrège les preuves -> tableau
 ```
 
 Le partitionnement est porté par `steps/06-run-durci.sh`. La commande `docker run` complète est
@@ -404,12 +404,13 @@ session scopé, MITM défensif) :
 - **Destination** — sur `tp_internal --internal`, le durci ne peut pas joindre `api.anthropic.com`
   en direct : la tentative est bloquée réseau, il ne peut donc pas court-circuiter la passerelle.
 
-Le jeton de session scopé est précisément la clé virtuelle. Surtout, LiteLLM journalise chaque
-requête : on dispose ainsi d'un point d'audit centralisé où inspecter, en temps réel ou a posteriori,
-ce que l'agent envoie et reçoit (avec budget, *rate-limit*, modèles autorisés, révocation de clé).
-Cette journalisation fait aussi office de canari — une requête vers un modèle inattendu, un volume
-anormal ou un motif d'exfiltration y sont détectables et peuvent déclencher une alerte, là où le
-conteneur, lui, ne voit rien passer. Le filtrage par destination est ainsi complété par un contrôle
+Le jeton de session scopé est précisément la clé virtuelle. Surtout, LiteLLM est un point de
+passage obligé qui voit chaque requête en clair et en journalise les métadonnées (clé, modèle,
+volume) : c'est un point d'audit centralisé, avec budget, *rate-limit*, modèles autorisés et
+révocation de clé. Cette journalisation peut faire office de canari — une requête vers un modèle
+inattendu ou un volume anormal y sont détectables, là où le conteneur, lui, ne voit rien passer.
+Conserver le contenu des requêtes (`store_prompts_in_spend_logs`) ou l'inspecter activement
+(*guardrails*) est possible, mais n'est pas activé dans le TP. Le filtrage par destination est ainsi complété par un contrôle
 de provenance et une capacité de détection : une défense en profondeur plutôt qu'un filtre unique.
 
 # Surface résiduelle et limites

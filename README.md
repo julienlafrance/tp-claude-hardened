@@ -122,7 +122,7 @@ tp/
 │   ├── recreate-daily.sh      (anti-persistence re-creation, runs inside the instance)
 │   ├── systemd/               (tp-recreate.service + .timer: re-creation every 24 h)
 │   └── build-pdf.sh           (docs/RAPPORT.md -> PDF)
-├── docs/                      (documentation, sections 01..12, report, published evidence)
+├── docs/                      (report RAPPORT.md/.pdf + appendices, in-depth notes, preuves/, en/)
 │   └── preuves/               (sanitized evidence: attack logs, before/after hashes)
 ├── evidence/                  (raw evidence generated at run time; gitignored)
 └── out/                       (build artifacts; gitignored)
@@ -212,9 +212,7 @@ In French:
 - **Appendices** (scripts, seccomp profile, Dockerfile, evidence logs): [`docs/annexes.md`](docs/annexes.md).
 - **File-level defense in depth**: [`config/README-perms.md`](config/README-perms.md).
 - **LiteLLM backend vs MITM proxy** (why there is no proxy): [`docs/10-litellm-vs-mitmproxy.md`](docs/10-litellm-vs-mitmproxy.md).
+- **Model backend (LiteLLM on ixia)**: [`docs/09-backend-modele.md`](docs/09-backend-modele.md); running Claude Code on a local model: [`docs/11-backend-llm-local.md`](docs/11-backend-llm-local.md).
 - **Host isolation (Incus LXC vs VM)**: [`docs/08-isolation-hote.md`](docs/08-isolation-hote.md).
+- **Detailed threat model**: [`docs/02-threat-model.md`](docs/02-threat-model.md).
 - **Threat references** (OWASP, MITRE ATLAS, Claude Code CVEs): [`docs/12-references-menaces.md`](docs/12-references-menaces.md).
-
-> Some older working notes in `docs/` (`01`, `04`–`07`, `09`) predate a design change
-> (an earlier version used a MITM egress proxy, since replaced by LiteLLM
-> re-authentication). The report is the up-to-date reference.

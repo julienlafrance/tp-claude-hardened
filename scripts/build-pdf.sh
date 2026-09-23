@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
 # build-pdf.sh — rend le rapport en PDF (pandoc -> LaTeX/lualatex).
-#   Source  : docs/RAPPORT-V0.md  (corps)  +  docs/annexes.md  (annexes A/B/C)
-#   Charte  : scripts/pdf/preamble.tex  (titre indigo, encadrés lavande, pieds
-#             de page, tables booktabs, code coloré — inspiré du rapport de réf.)
+#   Source  : docs/RAPPORT.md  (corps)  +  docs/annexes.md  (annexes A/B/C)
+#   Charte  : scripts/pdf/preamble.tex  (charte Télécom Paris sobre : page de
+#             titre, encadrés bleu nuit, tables booktabs, code monochrome encadré)
 #   Schémas : scripts/pdf/fig/fig{1,2,3}.tex  (TikZ natif — pas de navigateur)
 #   Sortie  : out/RAPPORT.pdf
 #
