@@ -87,7 +87,7 @@ L'agent ne connait d'ixia que ces variables (injectees au runtime depuis `.env`,
 services:
 
   litellm:
-    image: ghcr.io/berriai/litellm:v1.89.4
+    image: ghcr.io/berriai/litellm:v1.89.7
     container_name: litellm
     restart: unless-stopped
     ports:
@@ -150,12 +150,15 @@ volumes:
 
 | Service | Image / version | Role |
 |---|---|---|
-| `litellm` | `ghcr.io/berriai/litellm:v1.89.4` | proxy compatible Anthropic ; emet les cles scopees ; journalise l'usage (audit) |
+| `litellm` | `ghcr.io/berriai/litellm:v1.89.7` | proxy compatible Anthropic ; emet les cles scopees ; journalise l'usage (audit) |
 | `litellm-db` | `postgres:16-alpine` | persiste cles virtuelles, budgets, usage/audit de LiteLLM |
 | `ollama` | `ollama/ollama` (GPU RTX 3080 Ti) | sert les modeles **locaux** (dont `qwen3:8b`, retenu pour le TP) |
 | `open-webui` | `ghcr.io/open-webui/open-webui` | console humaine d'administration (hors chemin de l'agent) |
 
-> **`v1.89.4`** = version autoritaire de LiteLLM sur ixia. Les secrets (`LITELLM_MASTER_KEY`,
+> **`v1.89.7`** = version autoritaire de LiteLLM sur ixia (mise à jour depuis `v1.89.4` le
+> 2026-09-23 : la `v1.89.4` est vulnérable à la **CVE-2026-84377**, SSRF authentifiée permettant
+> d'exfiltrer la clé du fournisseur de modèle via des paramètres de routage du corps de requête —
+> exactement le risque d'une clé virtuelle détenue par la sandbox). Les secrets (`LITELLM_MASTER_KEY`,
 > `POSTGRES_PASSWORD`, `WEBUI_SECRET_KEY`, etc.) restent des **variables** : ils vivent dans un
 > `.env` gitignore cote ixia, **jamais** dans le depot du TP ni dans la sandbox. La sandbox ne
 > recoit **que** la cle **scopee** `LITELLM_VIRTUAL_KEY`.

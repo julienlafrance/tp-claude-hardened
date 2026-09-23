@@ -22,7 +22,7 @@ Claude Code (conteneur durci)                     ANTHROPIC_BASE_URL = passerell
       ▼
 Passerelle tp_internal 172.31.7.1:3101  ──►  device Incus « litellm »
       ▼
-LiteLLM (ixia, ghcr.io/berriai/litellm:v1.89.4)   traduit Anthropic ↔ Ollama
+LiteLLM (ixia, v1.89.4 lors de la validation ; v1.89.7 depuis le 2026-09-23)   traduit Anthropic ↔ Ollama
       ▼
 Ollama (ixia, RTX 3080 Ti 12 Go)                  modèles open-source locaux
 ```

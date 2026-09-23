@@ -19,7 +19,7 @@
 | [`annexes.md`](annexes.md) | Annexes A/B/C : `docker run` durci, profil seccomp, Dockerfile, scénarios d'attaque, logs de preuve |
 | [`02-threat-model.md`](02-threat-model.md) | Modèle de menace détaillé : actif protégé, 3 catégories de risque, cartographie de la surface de configuration |
 | [`08-isolation-hote.md`](08-isolation-hote.md) | Isolation de l'hôte (anneau 1) : conteneur LXC (implémenté) vs VM Incus (idéal recommandé) |
-| [`09-backend-modele.md`](09-backend-modele.md) | Backend modèle externe : LiteLLM v1.89.4 sur ixia (`backend-host:3101`), frontière de confiance, stack `docker compose` |
+| [`09-backend-modele.md`](09-backend-modele.md) | Backend modèle externe : LiteLLM v1.89.7 sur ixia (`backend-host:3101`), frontière de confiance, stack `docker compose` |
 | [`10-litellm-vs-mitmproxy.md`](10-litellm-vs-mitmproxy.md) | Pourquoi une passerelle LiteLLM ré-authentifiante + `--internal` remplace un proxy MITM dédié (bonus) |
 | [`11-backend-llm-local.md`](11-backend-llm-local.md) | Faire exécuter des outils à Claude Code avec un modèle local (recette `qwen3:8b`) et variante Claude Sonnet 5 |
 | [`12-references-menaces.md`](12-references-menaces.md) | Références sourcées : OWASP, MITRE ATLAS, CVE Claude Code / MCP, recherche sur l'empoisonnement de modèles |
