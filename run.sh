@@ -100,7 +100,7 @@ run_step() {
 CHAIN=(
   "Preflight (prerequis)|00-preflight.sh"
   "Hote Incus jetable (anneau 1)|01-incus-host.sh"
-  "Build des 3 images Docker|02-build.sh"
+  "Build de l'image Docker de l'agent|02-build.sh"
   "Permissions config (root:root 0444/0555)|03-config-perms.sh"
   "Lancement profil NU + check fonctionnel|04-run-nu.sh"
   "Attaques contre NU (attendu: REUSSI)|05-attacks-nu.sh"
@@ -129,7 +129,7 @@ do_all() {
 do_up() {
   run_step "Preflight (prerequis)"                         "00-preflight.sh"
   run_step "Hote Incus jetable (anneau 1)"                 "01-incus-host.sh"
-  run_step "Build des 3 images Docker"                     "02-build.sh"
+  run_step "Build de l'image Docker de l'agent"                     "02-build.sh"
   run_step "Permissions config (root:root 0444/0555)"      "03-config-perms.sh"
   run_step "Lancement profil NU + check fonctionnel"       "04-run-nu.sh"
   run_step "Lancement profil DURCI + check fonctionnel"    "06-run-durci.sh"

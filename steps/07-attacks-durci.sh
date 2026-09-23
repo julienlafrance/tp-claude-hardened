@@ -49,6 +49,8 @@ record() {
   printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$label" "$PROFILE" "$verdict" "$mech" >>"$RESULTS_TSV"
   if [[ "$verdict" == "BLOQUE" ]]; then
     ok   "ATTAQUE $id ($label) -> BLOQUE sur $PROFILE [attendu]"
+  elif [[ "$verdict" == "NON_TESTE" ]]; then
+    warn "ATTAQUE $id ($label) -> NON TESTE sur $PROFILE (prerequis absent : $mech)"
   else
     warn "ATTAQUE $id ($label) -> REUSSI sur $PROFILE [INATTENDU — a investiguer]"
   fi
@@ -190,8 +192,12 @@ s.on("error",()=>console.log("BLOQUE"));s.on("timeout",()=>{console.log("BLOQUE"
 ' 2>/dev/null | tail -1)"
 info "[DURCI] Bonus (2) contournement api.anthropic.com en direct -> $BYPASS (attendu: BLOQUE)"
 
-if [[ "$CODE_EVIL" != "200" && "$BYPASS" == "BLOQUE" ]]; then
+if [[ "$CODE_EVIL" =~ ^(401|403)$ && "$BYPASS" == "BLOQUE" ]]; then
   V=BLOQUE; M="identite etrangere rejetee par LiteLLM (HTTP $CODE_EVIL) + pas de contournement reseau"
+elif [[ "$CODE_EVIL" != "200" && "$BYPASS" == "BLOQUE" ]]; then
+  # Passerelle injoignable (HTTP 000 : pas de backend LiteLLM, ex. clone sans .secret) :
+  # le rejet de la cle etrangere n'est PAS prouve. On ne l'affiche pas comme bloque.
+  V=NON_TESTE; M="passerelle LiteLLM injoignable (HTTP ${CODE_EVIL:-000}) : provenance NON prouvee ; contournement direct bloque"
 else
   V=REUSSI; M="(!) identite etrangere acceptee OU contournement reseau possible"
 fi

@@ -58,6 +58,7 @@ declare -A LABELS=(
 # Compteurs de conformite a la matrice attendue.
 EXPECTED_OK=0
 DEVIATIONS=0
+NOT_TESTED=0
 
 # -----------------------------------------------------------------------------
 # Generation du Markdown.
@@ -77,6 +78,7 @@ mark() {
   case "$1" in
     REUSSI) printf 'Reussie' ;;
     BLOQUE) printf '**Bloquee**' ;;
+    NON_TESTE) printf 'Non testee' ;;
     *)      printf '?' ;;
   esac
 }
@@ -93,6 +95,9 @@ for id in "${IDS[@]}"; do
   # Conformite : attendu nu=REUSSI, durci=BLOQUE.
   if [[ "$nu_v" == "REUSSI" && "$du_v" == "BLOQUE" ]]; then
     EXPECTED_OK=$((EXPECTED_OK+1))
+  elif [[ "$du_v" == "NON_TESTE" ]]; then
+    NOT_TESTED=$((NOT_TESTED+1))
+    warn "Attaque $id non testee sur durci (prerequis absent, cf. mecanisme)."
   else
     DEVIATIONS=$((DEVIATIONS+1))
     warn "Ecart matrice (attaque $id): nu=$nu_v durci=$du_v (attendu nu=REUSSI durci=BLOQUE)."
@@ -107,9 +112,12 @@ done
   echo "## Synthese"
   echo
   echo "- Couples conformes a la matrice attendue (nu=Reussie, durci=Bloquee) : **$EXPECTED_OK / ${#IDS[@]}**"
+  if [[ "$NOT_TESTED" -gt 0 ]]; then
+    echo "- Non testees faute de prerequis : **$NOT_TESTED** (bonus : backend LiteLLM requis, cf. .secret/litellm.env)."
+  fi
   if [[ "$DEVIATIONS" -gt 0 ]]; then
     echo "- Ecarts detectes : **$DEVIATIONS** (voir le journal evidence/run.log)."
-  else
+  elif [[ "$NOT_TESTED" -eq 0 ]]; then
     echo "- Aucun ecart : la demonstration AVANT/APRES est complete."
   fi
   echo
